@@ -89,14 +89,14 @@ def easy_encrypt(text, password, salt):
     return encrypt(text, hash)
 
 # добавить/обновить пользвателя
-def add_user(id, username = False, firstname = False, lastname = False, from_user = False):
+def add_user(id, username = False, firstname = False, lastname = False):
     try:
         user = models.User.get(user_id=id)
         user.username = username or False
         user.firstname = firstname or False
         user.lastname = lastname or False
     except:
-        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False, from_user = from_user or False)
+        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False)
     user.save()
     return user
 
@@ -144,15 +144,7 @@ def com(message):
     text = m.text
     id = m.chat.id
     uid = m.from_user.id
-    try:
-        from_user = text.split()[1]
-        try:
-            models.User.get(uuid=from_user)
-        except:
-            from_user = False
-    except:
-        from_user = False
-    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name, from_user=from_user)
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
     bot.send_message(id, f"""Привет {user.firstname}, я бот который будет надёжно хранить твои данные в безопасном хранилище!
 ● Надёжное AES-256 шифрование твоим паролем
 ● Пароль нигде не хранится (даже хэш), сообщение с ним удаляется
