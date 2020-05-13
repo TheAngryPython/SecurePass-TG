@@ -1,2 +1,3 @@
 # SecurePass-TG
-Save your pass in Telegram
+Бот для телеграм
+Хранит пароли пользователей в зашифрованном виде
