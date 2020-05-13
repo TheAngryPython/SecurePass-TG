@@ -12,12 +12,14 @@ import telebot
 from telebot import *
 import json
 import requests
+import string
+import random
 
 # apihelper.proxy = {
 #         'https': 'socks5h://{}:{}'.format('127.0.0.1','4444')
 #     }
 
-commands = [{'command':'start', 'description':'start'}, {'command':'add', 'description':'add new block'}, {'command':'all', 'description':'view all you blocks'}, {'command':'help', 'description':'help'}]
+commands = [{'command':'start', 'description':'start'}, {'command':'add', 'description':'add new block'}, {'command':'generate_password', 'description':'generate password [lenght]'}, {'command':'all', 'description':'view all you blocks'}, {'command':'help', 'description':'help'}]
 
 folder = os.path.dirname(os.path.abspath(__file__))
 
@@ -30,15 +32,23 @@ BLOCK_SIZE = 16
 pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
 unpad = lambda s: s[:-ord(s[len(s) - 1:])]
 
+# генерация случайного пароля
+def random_password(size = 16):
+    chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + '!$&@*-=+/\\|^:;~`[]{}%()'
+    return ''.join(random.choice(chars) for x in range(size))
+
+# создать соль
 def get_salt():
     return str(random.randint(100000000000, 999999999999))
 
+# получить хэш пароля
 def get_password_hash(password, salt):
     salt = salt.encode()
     kdf = PBKDF2(password, salt, 64, 1000)
     key = kdf[:32]
     return key
 
+# зашифровать
 def encrypt(raw, password):
     private_key = password
     raw = pad(raw)
@@ -46,6 +56,7 @@ def encrypt(raw, password):
     cipher = AES.new(private_key, AES.MODE_CBC, iv)
     return bytes.decode(base64.b64encode(iv + cipher.encrypt(raw.encode())))
 
+# расшифровать
 def decrypt(enc, password):
     private_key = password
     enc = base64.b64decode(enc)
@@ -53,6 +64,7 @@ def decrypt(enc, password):
     cipher = AES.new(private_key, AES.MODE_CBC, iv)
     return bytes.decode(unpad(cipher.decrypt(enc[16:])))
 
+# добавить блок
 def add_data(user, data, name, password, login=False):
     salt1 = get_salt()
     hash1 = get_password_hash(password, salt1)
@@ -62,6 +74,7 @@ def add_data(user, data, name, password, login=False):
     data.save()
     return data
 
+# расшифровать блок
 def get_data(data, password):
     salt = data.salt
     enc = decrypt(data.data, get_password_hash(password, salt))
@@ -71,14 +84,19 @@ def get_data(data, password):
         enc1 = None
     return (enc, enc1)
 
-def add_user(id, username = False, firstname = False, lastname = False):
+def easy_encrypt(text, password, salt):
+    hash = get_password_hash(password, salt)
+    return encrypt(text, hash)
+
+# добавить/обновить пользвателя
+def add_user(id, username = False, firstname = False, lastname = False, from_user = False):
     try:
         user = models.User.get(user_id=id)
         user.username = username or False
         user.firstname = firstname or False
         user.lastname = lastname or False
     except:
-        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False)
+        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False, from_user = from_user or False)
     user.save()
     return user
 
@@ -99,6 +117,26 @@ def callback_inline(call):
     elif spl[0] == 'delete':
         models.Data.get(uuid=spl[1]).delete_instance()
         bot.delete_message(id, mid)
+    elif spl[0] == 'rename':
+        bot.send_message(id, 'Напишите новое название:')
+        user = models.User.get(user_id=uid)
+        user.action = text
+        user.save()
+    elif spl[0] == 'reset-pass':
+        bot.send_message(id, 'Введите старый пароль от Блока:')
+        user = models.User.get(user_id=uid)
+        user.action = text
+        user.save()
+    elif spl[0] == 'reset-data-login':
+        bot.send_message(id, 'Введите пароль от Блока:')
+        user = models.User.get(user_id=uid)
+        user.action = text
+        user.save()
+    elif spl[0] == 'reset-data-pass':
+        bot.send_message(id, 'Введите пароль от Блока:')
+        user = models.User.get(user_id=uid)
+        user.action = text
+        user.save()
 
 @bot.message_handler(commands=['start'])
 def com(message):
@@ -106,7 +144,15 @@ def com(message):
     text = m.text
     id = m.chat.id
     uid = m.from_user.id
-    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
+    try:
+        from_user = text.split()[1]
+        try:
+            models.User.get(uuid=from_user)
+        except:
+            from_user = False
+    except:
+        from_user = False
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name, from_user=from_user)
     bot.send_message(id, f"""Привет {user.firstname}, я бот который будет надёжно хранить твои данные в безопасном хранилище!
 ● Надёжное AES-256 шифрование твоим паролем
 ● Пароль нигде не хранится (даже хэш), сообщение с ним удаляется
@@ -121,7 +167,30 @@ def com(message):
     id = m.chat.id
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
-    bot.send_message(id, f"""Меня разрабатывает @EgTer. Я написан на python, мой <a href="https://github.com/TheAngryPython/SecurePass-TG">исходный код</a> выдожен на github. Использую шифрование AES-256, хэши паролей не хранятся, а это значит что даже получив доступ к базе данных, НИКТО и НИКОГДА не сможет узнать каким паролем зашифрованы ваши данные""", disable_web_page_preview=True, parse_mode='html')
+    bot.send_message(id, f"""Команды:
+/start - старт
+/help - помощь
+/all - все блоки
+/generate_password [длина (16)] - генерироваь сложный пароль
+
+Меня разрабатывает @EgTer. Я написан на python, мой <a href="https://github.com/TheAngryPython/SecurePass-TG">исходный код</a> выдожен на github. Использую шифрование AES-256, хэши паролей не хранятся, а это значит что даже получив доступ к базе данных, НИКТО и НИКОГДА не сможет узнать каким паролем зашифрованы ваши данные""", disable_web_page_preview=True, parse_mode='html')
+
+@bot.message_handler(commands=['generate_password'])
+def com(message):
+    m = message
+    text = m.text
+    id = m.chat.id
+    uid = m.from_user.id
+    spl = text.split()
+    try:
+        i = int(spl[1])
+        if i > 4096:
+            i = 4096
+        pas = random_password(i)
+    except:
+        pas = random_password()
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
+    bot.send_message(id, f"""{str(pas)}""", disable_web_page_preview=True, parse_mode='html')
 
 @bot.message_handler(commands=['add'])
 def com(message):
@@ -130,12 +199,15 @@ def com(message):
     id = m.chat.id
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
-    user.action = 'data_name'
-    user.save()
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    cancel = types.KeyboardButton('Остановить')
-    markup.row(cancel)
-    bot.send_message(id, f"""{user.firstname}, напиши название блока (не шифруется, для вашего удобства). (Помните, что во время создания блока данные хранятся в незашифрованном виде)""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+    if len(models.Data.filter(user=user)) >= 50:
+        bot.send_message(id, 'Вы превысили лимит в 50 блоков, для его увелечения обратитесь к @EgTer')
+    else:
+        user.action = 'data_name'
+        user.save()
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        cancel = types.KeyboardButton('Остановить')
+        markup.row(cancel)
+        bot.send_message(id, f"""{user.firstname}, напиши название блока (не шифруется, для вашего удобства). (Помните, что во время создания блока данные хранятся в незашифрованном виде)""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
 
 @bot.message_handler(commands=['all'])
 def com(message):
@@ -166,6 +238,12 @@ def com(message):
     uid = m.from_user.id
     mid = m.message_id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
+    spl = user.action.split('_')
+    for i in range(9):
+        try:
+            spl[i]
+        except:
+            spl.append('')
     if text == 'Остановить':
         user.action = False
         user.tmp = False
@@ -252,13 +330,90 @@ def com(message):
                 keyboard.add(button_1)
                 button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
                 keyboard.add(button_1)
+                button_1 = types.InlineKeyboardButton(text='Изменить пароль', callback_data=f'reset-pass_{block.uuid}')
+                keyboard.add(button_1)
+                button_1 = types.InlineKeyboardButton(text='Изменить логин', callback_data=f'reset-data-login_{block.uuid}')
+                keyboard.add(button_1)
+                button_1 = types.InlineKeyboardButton(text='Изменить данные', callback_data=f'reset-data-pass_{block.uuid}')
+                keyboard.add(button_1)
                 bot.send_message(id, f"""Блок {block.uuid}
 Логин: {data[1]}
-Пароль: {data[0]}
+Данные: {data[0]}
 
 Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
         except:
             markup = types.ReplyKeyboardRemove()
             bot.send_message(id, f"""Блок не найден!""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+    elif spl[0] == 'rename':
+        try:
+            models.Data.get(name=text)
+            bot.send_message(id, 'Блок с таким названием уже есть!')
+        except:
+            user.action = False
+            user.save()
+            block = models.Data.get(uuid=spl[1])
+            block.name = text
+            block.save()
+            bot.send_message(id, 'Успешно!')
+    elif spl[0] == 'reset-pass':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        if get_data(block, text)[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.tmp = text
+            user.action = 'reset-pass-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новый пароль:')
+    elif spl[0] == 'reset-pass-done':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        data = get_data(block, user.tmp)
+        block.salt = get_salt()
+        block.data = easy_encrypt(data[0], text, block.salt)
+        block.login = easy_encrypt(str(data[1]), text, block.salt)
+        block.save()
+        user.tmp = False
+        user.action = False
+        user.save()
+        bot.send_message(id, 'Пароль изменён!')
+    elif spl[0] == 'reset-data-login':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        if get_data(block, text)[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.tmp = text
+            user.action = 'reset-data-login-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новый логин:')
+    elif spl[0] == 'reset-data-login-done':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        block.login = easy_encrypt(text, user.tmp, block.salt)
+        block.save()
+        user.tmp = False
+        user.action = False
+        user.save()
+        bot.send_message(id, 'Успешно!')
+    elif spl[0] == 'reset-data-pass':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        if get_data(block, text)[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.tmp = text
+            user.action = 'reset-data-pass-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новые данные:')
+    elif spl[0] == 'reset-data-pass-done':
+        bot.delete_message(id,mid)
+        block = models.Data.get(uuid=spl[1])
+        block.data = easy_encrypt(text, user.tmp, block.salt)
+        block.save()
+        user.tmp = False
+        user.action = False
+        user.save()
+        bot.send_message(id, 'Успешно!')
 
 bot.polling(none_stop=True, timeout=123)

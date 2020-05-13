@@ -20,6 +20,7 @@ class User(BaseModel):
     uuid = UUIDField(primary_key=True, default=uuid.uuid4)
     action = TextField(default=False)
     tmp = TextField(default=False)
+    from_user = TextField(default=False)
 
     # необходимо добавить атрибут Meta всем моделям для корректной работы метакласса
     class Meta:
