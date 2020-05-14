@@ -137,6 +137,11 @@ def callback_inline(call):
         user = models.User.get(user_id=uid)
         user.action = text
         user.save()
+    elif spl[0] == 'update-block-msg':
+        bot.send_message(id, 'Введите пароль')
+        user = models.User.get(user_id=uid)
+        user.action = text + '_' + str(mid)
+        user.save()
 
 @bot.message_handler(commands=['start'])
 def com(message):
@@ -338,6 +343,8 @@ def com(message):
                 keyboard.add(button_1, button_2)
                 button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
                 keyboard.add(button_1)
+                button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
+                keyboard.add(button_1)
                 bot.send_message(id, f"""Блок {block.name}
 Логин: {data[1]}
 Данные: {data[0]}
@@ -420,5 +427,35 @@ def com(message):
         user.action = False
         user.save()
         bot.send_message(id, 'Успешно!')
+    elif spl[0] == 'update-block-msg':
+        block = models.Data.get(uuid=spl[1])
+        data = get_data(block, text)
+        if data[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.action = False
+            user.save()
+            keyboard = types.InlineKeyboardMarkup()
+            button_1 = types.InlineKeyboardButton(text='Удалить', callback_data=f'1')
+            keyboard.add(button_1)
+            button_1 = types.InlineKeyboardButton(text='Блок', callback_data=f'delete_{block.uuid}')
+            button_2 = types.InlineKeyboardButton(text='Сообщение', callback_data=f'delete-message_{mid}')
+            keyboard.add(button_1, button_2)
+            button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
+            keyboard.add(button_1)
+            button_1 = types.InlineKeyboardButton(text='Изменить', callback_data=f'1')
+            keyboard.add(button_1)
+            button_1 = types.InlineKeyboardButton(text='Пароль', callback_data=f'reset-pass_{block.uuid}')
+            button_2 = types.InlineKeyboardButton(text='Логин', callback_data=f'reset-data-login_{block.uuid}')
+            keyboard.add(button_1, button_2)
+            button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
+            keyboard.add(button_1)
+            button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
+            keyboard.add(button_1)
+            bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = f"""Блок {block.name}
+Логин: {data[1]}
+Данные: {data[0]}
+
+Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
 
 bot.polling(none_stop=True, timeout=123)
