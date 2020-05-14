@@ -231,12 +231,17 @@ def com(message):
     mid = m.message_id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
     spl = user.action.split('_')
+    try:
+        bot.delete_message(id, mid)
+        bot.delete_message(id, mid - 1)
+    except:
+        pass
     for i in range(9):
         try:
             spl[i]
         except:
             spl.append('')
-    if text == 'Остановить':
+    if text.lower() == 'Остановить'.lower() or text.lower() == 'Stop'.lower():
         user.action = False
         user.tmp = False
         user.save()
@@ -248,43 +253,48 @@ def com(message):
             models.Data.get(user=user,name=text)
         except:
             t = False
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
-            no = types.KeyboardButton('Нет')
-            markup.row(no, cancel)
-            tmp = {'name': text}
-            user.tmp = json.dumps(tmp)
-            bot.delete_message(id,mid)
-            bot.send_message(id, f"""Хорошо, теперь отправь логин (если не требуется нажми "Нет").""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            user.action = 'data_login'
-            user.save()
+            if text >= 50:
+                bot.send_message(id, 'Слишком длинное название!')
+            else:
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                cancel = types.KeyboardButton('Остановить')
+                no = types.KeyboardButton('Нет')
+                markup.row(no, cancel)
+                tmp = {'name': text}
+                user.tmp = json.dumps(tmp)
+                bot.send_message(id, f"""Хорошо, теперь отправь логин (если не требуется нажми "Нет").""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                user.action = 'data_login'
+                user.save()
         if t:
             bot.send_message(id, f"""У вас уже есть блок с таким названием.""", disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'data_login':
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        cancel = types.KeyboardButton('Остановить')
-        markup.row(cancel)
-        tmp = json.loads(user.tmp)
-        if text == 'Нет' or text == 'No':
-            tmp['login'] = False
+        if text >= 100:
+            bot.send_message(id, 'Слишком длинный логин')
         else:
-            tmp['login'] = text
-        user.tmp = json.dumps(tmp)
-        bot.delete_message(id,mid)
-        bot.send_message(id, f"""Дальше идёт сам блок с данными (пароль, пин-код, кодовое слово).""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-        user.action = 'data_password'
-        user.save()
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            cancel = types.KeyboardButton('Остановить')
+            markup.row(cancel)
+            tmp = json.loads(user.tmp)
+            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+                tmp['login'] = False
+            else:
+                tmp['login'] = text
+            user.tmp = json.dumps(tmp)
+            bot.send_message(id, f"""Дальше идёт сам блок с данными (пароль, пин-код, кодовое слово).""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            user.action = 'data_password'
+            user.save()
     elif user.action == 'data_password':
-        tmp = json.loads(user.tmp)
-        tmp['password'] = text
-        user.tmp = json.dumps(tmp)
-        bot.delete_message(id,mid)
-        bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html')
-        user.action = 'data_key'
-        user.save()
+        if text >= 3000:
+            bot.send_message(id, 'Слишком длинный текст')
+        else:
+            tmp = json.loads(user.tmp)
+            tmp['password'] = text
+            user.tmp = json.dumps(tmp)
+            bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html')
+            user.action = 'data_key'
+            user.save()
     elif user.action == 'data_key':
         tmp = json.loads(user.tmp)
-        bot.delete_message(id,mid)
         add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'])
         bot.send_message(id, f"""Блок создан!
 
@@ -297,7 +307,6 @@ def com(message):
             user.action = 'block_open'
             user.tmp = text
             user.save()
-            bot.delete_message(id,mid)
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
             cancel = types.KeyboardButton('Остановить')
             markup.row(cancel)
@@ -308,7 +317,6 @@ def com(message):
         try:
             block = models.Data.get(user=user,name=user.tmp)
             data = get_data(block, text)
-            bot.delete_message(id,mid)
             if not data[0]:
                 markup = types.ReplyKeyboardRemove()
                 bot.send_message(id, f"""Неправильный пароль от блока {block.name}""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
@@ -343,14 +351,16 @@ def com(message):
             models.Data.get(name=text)
             bot.send_message(id, 'Блок с таким названием уже есть!')
         except:
-            user.action = False
-            user.save()
-            block = models.Data.get(uuid=spl[1])
-            block.name = text
-            block.save()
-            bot.send_message(id, 'Успешно!')
+            if text >= 50:
+                bot.send_message(id, 'Слишком длинное название!')
+            else:
+                user.action = False
+                user.save()
+                block = models.Data.get(uuid=spl[1])
+                block.name = text
+                block.save()
+                bot.send_message(id, 'Успешно!')
     elif spl[0] == 'reset-pass':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
@@ -360,7 +370,6 @@ def com(message):
             user.save()
             bot.send_message(id, 'Введите новый пароль:')
     elif spl[0] == 'reset-pass-done':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         data = get_data(block, user.tmp)
         block.salt = get_salt()
@@ -372,17 +381,18 @@ def com(message):
         user.save()
         bot.send_message(id, 'Пароль изменён!')
     elif spl[0] == 'reset-data-login':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            user.tmp = text
-            user.action = 'reset-data-login-done_'+spl[1]
-            user.save()
-            bot.send_message(id, 'Введите новый логин:')
+            if text >= 100:
+                bot.send_message(id, 'Слишком длинный логин')
+            else:
+                user.tmp = text
+                user.action = 'reset-data-login-done_'+spl[1]
+                user.save()
+                bot.send_message(id, 'Введите новый логин:')
     elif spl[0] == 'reset-data-login-done':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         block.login = easy_encrypt(text, user.tmp, block.salt)
         block.save()
@@ -391,17 +401,18 @@ def com(message):
         user.save()
         bot.send_message(id, 'Успешно!')
     elif spl[0] == 'reset-data-pass':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            user.tmp = text
-            user.action = 'reset-data-pass-done_'+spl[1]
-            user.save()
-            bot.send_message(id, 'Введите новые данные:')
+            if text >= 3000:
+                bot.send_message(id, 'Слишком длинный текст')
+            else:
+                user.tmp = text
+                user.action = 'reset-data-pass-done_'+spl[1]
+                user.save()
+                bot.send_message(id, 'Введите новые данные:')
     elif spl[0] == 'reset-data-pass-done':
-        bot.delete_message(id,mid)
         block = models.Data.get(uuid=spl[1])
         block.data = easy_encrypt(text, user.tmp, block.salt)
         block.save()
