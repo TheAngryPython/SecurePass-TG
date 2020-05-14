@@ -168,6 +168,7 @@ def com(message):
 /start - старт
 /help - помощь
 /all - все блоки
+/add - добавить новый блокы
 /generate_password [длина (16)] - генерироваь сложный пароль
 
 Меня разрабатывает @EgTer. Я написан на python, мой <a href="https://github.com/TheAngryPython/SecurePass-TG">исходный код</a> выдожен на github. Использую шифрование AES-256, хэши паролей не хранятся, а это значит что даже получив доступ к базе данных, НИКТО и НИКОГДА не сможет узнать каким паролем зашифрованы ваши данные""", disable_web_page_preview=True, parse_mode='html')
