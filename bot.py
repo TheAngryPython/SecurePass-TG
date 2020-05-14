@@ -311,7 +311,7 @@ def com(message):
             bot.delete_message(id,mid)
             if not data[0]:
                 markup = types.ReplyKeyboardRemove()
-                bot.send_message(id, f"""Неправильный пароль от блока {block.uuid}""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                bot.send_message(id, f"""Неправильный пароль от блока {block.name}""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             else:
                 user.action = False
                 user.save()
@@ -330,7 +330,7 @@ def com(message):
                 keyboard.add(button_1, button_2)
                 button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
                 keyboard.add(button_1)
-                bot.send_message(id, f"""Блок {block.uuid}
+                bot.send_message(id, f"""Блок {block.name}
 Логин: {data[1]}
 Данные: {data[0]}
 
