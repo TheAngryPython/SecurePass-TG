@@ -253,7 +253,7 @@ def com(message):
             models.Data.get(user=user,name=text)
         except:
             t = False
-            if text >= 50:
+            if len(text) >= 50:
                 bot.send_message(id, 'Слишком длинное название!')
             else:
                 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -268,7 +268,7 @@ def com(message):
         if t:
             bot.send_message(id, f"""У вас уже есть блок с таким названием.""", disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'data_login':
-        if text >= 100:
+        if len(text) >= 100:
             bot.send_message(id, 'Слишком длинный логин')
         else:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -284,7 +284,7 @@ def com(message):
             user.action = 'data_password'
             user.save()
     elif user.action == 'data_password':
-        if text >= 3000:
+        if len(text) >= 3000:
             bot.send_message(id, 'Слишком длинный текст')
         else:
             tmp = json.loads(user.tmp)
@@ -351,7 +351,7 @@ def com(message):
             models.Data.get(name=text)
             bot.send_message(id, 'Блок с таким названием уже есть!')
         except:
-            if text >= 50:
+            if len(text) >= 50:
                 bot.send_message(id, 'Слишком длинное название!')
             else:
                 user.action = False
@@ -385,7 +385,7 @@ def com(message):
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            if text >= 100:
+            if len(text) >= 100:
                 bot.send_message(id, 'Слишком длинный логин')
             else:
                 user.tmp = text
@@ -405,7 +405,7 @@ def com(message):
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            if text >= 3000:
+            if len(text) >= 3000:
                 bot.send_message(id, 'Слишком длинный текст')
             else:
                 user.tmp = text
