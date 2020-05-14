@@ -113,7 +113,7 @@ def callback_inline(call):
         except:
             spl.append('')
     if spl[0] == 'delete-message':
-        bot.delete_message(id, int(spl[1])+1)
+        bot.delete_message(id, mid)
     elif spl[0] == 'delete':
         models.Data.get(uuid=spl[1]).delete_instance()
         bot.delete_message(id, mid)
