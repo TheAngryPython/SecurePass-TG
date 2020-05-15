@@ -65,24 +65,31 @@ def decrypt(enc, password):
     return bytes.decode(unpad(cipher.decrypt(enc[16:])))
 
 # добавить блок
-def add_data(user, data, name, password, login=False):
+def add_data(user, data, name, password, login=False, other=False):
     salt1 = get_salt()
     hash1 = get_password_hash(password, salt1)
     if login != False:
         login = encrypt(login, hash1)
-    data = models.Data.create(user=user, data=encrypt(data, hash1), login=login, name=name, salt=salt1)
+    if other != False:
+        other = encrypt(other, hash1)
+    data = models.Data.create(user=user, data=encrypt(data, hash1), login=login, name=name, salt=salt1, other=other)
     data.save()
     return data
 
 # расшифровать блок
 def get_data(data, password):
     salt = data.salt
-    enc = decrypt(data.data, get_password_hash(password, salt))
+    hash = get_password_hash(password, salt)
+    enc = decrypt(data.data, hash)
     if str(data.login) != str(False):
-        enc1 = decrypt(data.login, get_password_hash(password, salt))
+        enc1 = decrypt(data.login, hash)
     else:
         enc1 = None
-    return (enc, enc1)
+    if str(data.other) != str(False):
+        enc2 = decrypt(data.other, hash)
+    else:
+        enc2 = None
+    return (enc, enc1, enc2)
 
 def easy_encrypt(text, password, salt):
     hash = get_password_hash(password, salt)
@@ -99,6 +106,27 @@ def add_user(id, username = False, firstname = False, lastname = False):
         user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False)
     user.save()
     return user
+
+def return_settings(block):
+    keyboard = types.InlineKeyboardMarkup()
+    button_1 = types.InlineKeyboardButton(text='Удалить', callback_data=f'1')
+    keyboard.add(button_1)
+    button_1 = types.InlineKeyboardButton(text='Блок', callback_data=f'delete_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text='Сообщение', callback_data=f'delete-message')
+    keyboard.add(button_1, button_2)
+    button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
+    keyboard.add(button_1)
+    button_1 = types.InlineKeyboardButton(text='Изменить', callback_data=f'1')
+    keyboard.add(button_1)
+    button_1 = types.InlineKeyboardButton(text='Пароль', callback_data=f'reset-pass_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text='Логин', callback_data=f'reset-data-login_{block.uuid}')
+    keyboard.add(button_1, button_2)
+    button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text='Заметку', callback_data=f'reset-data-note_{block.uuid}')
+    keyboard.add(button_1, button_2)
+    button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
+    keyboard.add(button_1)
+    return keyboard
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
@@ -141,6 +169,11 @@ def callback_inline(call):
         bot.send_message(id, 'Введите пароль')
         user = models.User.get(user_id=uid)
         user.action = text + '_' + str(mid)
+        user.save()
+    elif spl[0] == 'reset-data-note':
+        bot.send_message(id, 'Введите пароль')
+        user = models.User.get(user_id=uid)
+        user.action = text
         user.save()
 
 @bot.message_handler(commands=['admin_recover_bd'])
@@ -302,15 +335,32 @@ def com(message):
         if len(text) >= 3000:
             bot.send_message(id, 'Слишком длинный текст')
         else:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            cancel = types.KeyboardButton('Остановить')
+            no = types.KeyboardButton('Нет')
+            markup.row(no, cancel)
             tmp = json.loads(user.tmp)
             tmp['password'] = text
+            user.tmp = json.dumps(tmp)
+            bot.send_message(id, f"""Напишите заметку к блоку""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            user.action = 'data_other'
+            user.save()
+    elif user.action == 'data_other':
+        if len(text) >= 800:
+            bot.send_message(id, 'Слишком длинный текст')
+        else:
+            tmp = json.loads(user.tmp)
+            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+                tmp['other'] = False
+            else:
+                tmp['other'] = text
             user.tmp = json.dumps(tmp)
             bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html')
             user.action = 'data_key'
             user.save()
     elif user.action == 'data_key':
         tmp = json.loads(user.tmp)
-        add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'])
+        add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'])
         bot.send_message(id, f"""Блок создан!
 
 Просмореть все блоки: /all""", disable_web_page_preview=True, parse_mode='html')
@@ -338,28 +388,12 @@ def com(message):
             else:
                 user.action = False
                 user.save()
-                keyboard = types.InlineKeyboardMarkup()
-                button_1 = types.InlineKeyboardButton(text='Удалить', callback_data=f'1')
-                keyboard.add(button_1)
-                button_1 = types.InlineKeyboardButton(text='Блок', callback_data=f'delete_{block.uuid}')
-                button_2 = types.InlineKeyboardButton(text='Сообщение', callback_data=f'delete-message_{mid}')
-                keyboard.add(button_1, button_2)
-                button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
-                keyboard.add(button_1)
-                button_1 = types.InlineKeyboardButton(text='Изменить', callback_data=f'1')
-                keyboard.add(button_1)
-                button_1 = types.InlineKeyboardButton(text='Пароль', callback_data=f'reset-pass_{block.uuid}')
-                button_2 = types.InlineKeyboardButton(text='Логин', callback_data=f'reset-data-login_{block.uuid}')
-                keyboard.add(button_1, button_2)
-                button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
-                keyboard.add(button_1)
-                button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
-                keyboard.add(button_1)
                 bot.send_message(id, f"""Блок {block.name}
 Логин: {data[1]}
 Данные: {data[0]}
+Заметка: {data[2]}
 
-Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
+Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
         except:
             markup = types.ReplyKeyboardRemove()
             bot.send_message(id, f"""Блок не найден!""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
@@ -402,13 +436,10 @@ def com(message):
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            if len(text) >= 100:
-                bot.send_message(id, 'Слишком длинный логин')
-            else:
-                user.tmp = text
-                user.action = 'reset-data-login-done_'+spl[1]
-                user.save()
-                bot.send_message(id, 'Введите новый логин:')
+            user.tmp = text
+            user.action = 'reset-data-login-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новый логин:')
     elif spl[0] == 'reset-data-login-done':
         block = models.Data.get(uuid=spl[1])
         block.login = easy_encrypt(text, user.tmp, block.salt)
@@ -422,13 +453,10 @@ def com(message):
         if get_data(block, text)[0] == '':
             bot.send_message(id, 'Неверный пароль!')
         else:
-            if len(text) >= 3000:
-                bot.send_message(id, 'Слишком длинный текст')
-            else:
-                user.tmp = text
-                user.action = 'reset-data-pass-done_'+spl[1]
-                user.save()
-                bot.send_message(id, 'Введите новые данные:')
+            user.tmp = text
+            user.action = 'reset-data-pass-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новые данные:')
     elif spl[0] == 'reset-data-pass-done':
         block = models.Data.get(uuid=spl[1])
         block.data = easy_encrypt(text, user.tmp, block.salt)
@@ -437,6 +465,26 @@ def com(message):
         user.action = False
         user.save()
         bot.send_message(id, 'Успешно!')
+    elif spl[0] == 'reset-data-note':
+        block = models.Data.get(uuid=spl[1])
+        if get_data(block, text)[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.tmp = text
+            user.action = 'reset-data-note-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новые данные:')
+    elif spl[0] == 'reset-data-note-done':
+        if len(text) >= 800:
+            bot.send_message(id, 'Слишком длинная заметка')
+        else:
+            block = models.Data.get(uuid=spl[1])
+            block.other = easy_encrypt(text, user.tmp, block.salt)
+            block.save()
+            user.tmp = False
+            user.action = False
+            user.save()
+            bot.send_message(id, 'Успешно!')
     elif spl[0] == 'update-block-msg':
         block = models.Data.get(uuid=spl[1])
         data = get_data(block, text)
@@ -445,27 +493,14 @@ def com(message):
         else:
             user.action = False
             user.save()
-            keyboard = types.InlineKeyboardMarkup()
-            button_1 = types.InlineKeyboardButton(text='Удалить', callback_data=f'1')
-            keyboard.add(button_1)
-            button_1 = types.InlineKeyboardButton(text='Блок', callback_data=f'delete_{block.uuid}')
-            button_2 = types.InlineKeyboardButton(text='Сообщение', callback_data=f'delete-message_{mid}')
-            keyboard.add(button_1, button_2)
-            button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
-            keyboard.add(button_1)
-            button_1 = types.InlineKeyboardButton(text='Изменить', callback_data=f'1')
-            keyboard.add(button_1)
-            button_1 = types.InlineKeyboardButton(text='Пароль', callback_data=f'reset-pass_{block.uuid}')
-            button_2 = types.InlineKeyboardButton(text='Логин', callback_data=f'reset-data-login_{block.uuid}')
-            keyboard.add(button_1, button_2)
-            button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
-            keyboard.add(button_1)
-            button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
-            keyboard.add(button_1)
-            bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = f"""Блок {block.name}
+            try:
+                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = f"""Блок {block.name}
 Логин: {data[1]}
 Данные: {data[0]}
+Заметка: {data[2]}
 
-Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
+Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
+            except:
+                pass
 
 bot.polling(none_stop=True, timeout=123)
