@@ -143,6 +143,15 @@ def callback_inline(call):
         user.action = text + '_' + str(mid)
         user.save()
 
+@bot.message_handler(commands=['admin_recover_bd'])
+def admin_recover_bd(message):
+	m = message
+	text = m.text
+	id = m.chat.id
+	uid = m.from_user.id
+	if uid == int(cfg['id']):
+		bot.send_document(id, open('db.db', 'rb'), caption = '#db')
+
 @bot.message_handler(commands=['start'])
 def com(message):
     m = message
