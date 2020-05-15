@@ -276,7 +276,7 @@ def com(message):
 /add - добавить новый блок
 /generate_password [длина (16)] - генерироваь сложный пароль
 
-Меня разрабатывает @EgTer. Я написан на python, мой <a href="https://github.com/TheAngryPython/SecurePass-TG">исходный код</a> выложен на github. Использую шифрование <a href="https://ru.wikipedia.org/wiki/Advanced_Encryption_Standard">AES</a>, хэши паролей не хранятся, а это значит что даже получив доступ к базе данных, никто не сможет узнать ваши данные без пароля шифрования.""", disable_web_page_preview=True, parse_mode='html')
+https://teletype.in/@safepass/2LDYgGrKq""", parse_mode='html')
 
 @bot.message_handler(commands=['generate_password'])
 def com(message):
