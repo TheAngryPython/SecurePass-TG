@@ -141,6 +141,9 @@ def return_block_text(block, data):
 
 Удалите это сообщение по завершении."""
 
+def return_block_text_enc(block):
+    return f'Блок {block.name}\n\nДата создания: {block.creation_date}\nСоль: {block.salt}\nUUID: {block.uuid}\nЛогин: {block.login}\nДанные: {block.data}\nЗаметка: {block.other}\n\nДля расшифровки требуется пароль, чтобы расшифровать напишите @safepass_bot {block.uuid} [пароль]'
+
 @bot.inline_handler(lambda query: query.query)
 def query_text(inline_query):
     uid = inline_query.from_user.id
@@ -152,26 +155,41 @@ def query_text(inline_query):
             spl[i]
         except:
             spl.append('')
-    try:
-        block = models.Data.get(uuid=spl[0])
-        if block.user != user:
+    if spl[0] == 'all':
+        blocks = models.Data.filter(user=user)
+        if len(blocks) == 0:
+            r = types.InlineQueryResultArticle(1, "У вас нет блоков!", types.InputTextMessageContent('У вас нет блоков!'))
+            bot.answer_inline_query(inline_query.id, [r], cache_time=1, is_personal=True)
+        else:
+            r = []
+            i = 1
+            for block in blocks:
+                r.append(types.InlineQueryResultArticle(i, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block))))
+                i+=1
+            bot.answer_inline_query(inline_query.id, r, cache_time=1, is_personal=True)
+    else:
+        try:
+            block = models.Data.get(uuid=spl[0])
+            if block.user != user:
+                r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
+                bot.answer_inline_query(inline_query.id, [r])
+            else:
+                if spl[1] != '':
+                    data = get_data(block, spl[1])
+                    if data[0] == '':
+                        r = types.InlineQueryResultArticle(1, 'Неверный пароль!', types.InputTextMessageContent('Неверный пароль!'))
+                        r1 = types.InlineQueryResultArticle(2, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block)))
+                        bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+                    else:
+                        r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)))
+                        bot.answer_inline_query(inline_query.id, [r], is_personal=True, cache_time=1)
+                else:
+                    r = types.InlineQueryResultArticle(1, "Введите пароль", types.InputTextMessageContent('Введите пароль'))
+                    r1 = types.InlineQueryResultArticle(2, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block)))
+                    bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+        except Exception as e:
             r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
             bot.answer_inline_query(inline_query.id, [r])
-        else:
-            if spl[1] != '':
-                data = get_data(block, spl[1])
-                if data[0] == '':
-                    r = types.InlineQueryResultArticle(1, 'Неверный пароль!', types.InputTextMessageContent('Неверный пароль!'))
-                    bot.answer_inline_query(inline_query.id, [r])
-                else:
-                    r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)), is_personal=True)
-                    bot.answer_inline_query(inline_query.id, [r])
-            else:
-                r = types.InlineQueryResultArticle(1, "Введите пароль", types.InputTextMessageContent('Введите пароль'))
-                bot.answer_inline_query(inline_query.id, [r])
-    except:
-        r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
-        bot.answer_inline_query(inline_query.id, [r])
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):

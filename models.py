@@ -21,10 +21,6 @@ class User(BaseModel):
     action = TextField(default=False)
     tmp = TextField(default=False)
 
-    # необходимо добавить атрибут Meta всем моделям для корректной работы метакласса
-    class Meta:
-        pass
-
 class Data(BaseModel):
     user = ForeignKeyField(User)
     name = TextField()
@@ -34,9 +30,6 @@ class Data(BaseModel):
     uuid = UUIDField(primary_key=True, default=uuid.uuid4)
     creation_date = DateField(default=datetime.datetime.now)
     salt = TextField()
-
-    class Meta:
-        pass
 
 db.connect()
 db.create_tables([User, Data])
