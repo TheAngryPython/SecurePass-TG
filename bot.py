@@ -99,9 +99,12 @@ def easy_encrypt(text, password, salt):
 def add_user(id, username = False, firstname = False, lastname = False):
     try:
         user = models.User.get(user_id=id)
-        user.username = username or False
-        user.firstname = firstname or False
-        user.lastname = lastname or False
+        if username:
+            user.username = username or False
+        if firstname:
+            user.firstname = firstname or False
+        if lastname:
+            user.lastname = lastname or False
     except:
         user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False)
     user.save()
@@ -126,7 +129,49 @@ def return_settings(block):
     keyboard.add(button_1, button_2)
     button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
     keyboard.add(button_1)
+    button_1 = types.InlineKeyboardButton(text='Поделиться', switch_inline_query=f'{block.uuid}')
+    keyboard.add(button_1)
     return keyboard
+
+def return_block_text(block, data):
+    return f"""Блок {block.name}
+Логин: {data[1]}
+Данные: {data[0]}
+Заметка: {data[2]}
+
+Удалите это сообщение по завершении."""
+
+@bot.inline_handler(lambda query: query.query)
+def query_text(inline_query):
+    uid = inline_query.from_user.id
+    user = add_user(uid)
+    text = inline_query.query
+    spl = text.split(' ')
+    for i in range(9):
+        try:
+            spl[i]
+        except:
+            spl.append('')
+    try:
+        block = models.Data.get(uuid=spl[0])
+        if block.user != user:
+            r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
+            bot.answer_inline_query(inline_query.id, [r])
+        else:
+            if spl[1] != '':
+                data = get_data(block, spl[1])
+                if data[0] == '':
+                    r = types.InlineQueryResultArticle(1, 'Неверный пароль!', types.InputTextMessageContent('Неверный пароль!'))
+                    bot.answer_inline_query(inline_query.id, [r])
+                else:
+                    r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)))
+                    bot.answer_inline_query(inline_query.id, [r])
+            else:
+                r = types.InlineQueryResultArticle(1, "Введите пароль", types.InputTextMessageContent('Введите пароль'))
+                bot.answer_inline_query(inline_query.id, [r])
+    except:
+        r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
+        bot.answer_inline_query(inline_query.id, [r])
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
@@ -178,12 +223,12 @@ def callback_inline(call):
 
 @bot.message_handler(commands=['admin_recover_bd'])
 def admin_recover_bd(message):
-	m = message
-	text = m.text
-	id = m.chat.id
-	uid = m.from_user.id
-	if uid == int(cfg['id']):
-		bot.send_document(id, open('db.db', 'rb'), caption = '#db')
+    m = message
+    text = m.text
+    id = m.chat.id
+    uid = m.from_user.id
+    if uid == int(cfg['id']):
+        bot.send_document(id, open('db.db', 'rb'), caption = '#db')
 
 @bot.message_handler(commands=['start'])
 def com(message):
@@ -388,12 +433,7 @@ def com(message):
             else:
                 user.action = False
                 user.save()
-                bot.send_message(id, f"""Блок {block.name}
-Логин: {data[1]}
-Данные: {data[0]}
-Заметка: {data[2]}
-
-Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
+                bot.send_message(id, return_block_text(block, data), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
         except:
             markup = types.ReplyKeyboardRemove()
             bot.send_message(id, f"""Блок не найден!""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
@@ -494,12 +534,7 @@ def com(message):
             user.action = False
             user.save()
             try:
-                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = f"""Блок {block.name}
-Логин: {data[1]}
-Данные: {data[0]}
-Заметка: {data[2]}
-
-Удалите это сообщение по завершении.""", disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
+                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = return_block_text(block, data), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
             except:
                 pass
 
