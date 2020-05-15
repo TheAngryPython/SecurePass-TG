@@ -164,7 +164,7 @@ def query_text(inline_query):
                     r = types.InlineQueryResultArticle(1, 'Неверный пароль!', types.InputTextMessageContent('Неверный пароль!'))
                     bot.answer_inline_query(inline_query.id, [r])
                 else:
-                    r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)))
+                    r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)), is_personal=True)
                     bot.answer_inline_query(inline_query.id, [r])
             else:
                 r = types.InlineQueryResultArticle(1, "Введите пароль", types.InputTextMessageContent('Введите пароль'))
