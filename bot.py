@@ -14,6 +14,7 @@ import json
 import requests
 import string
 import random
+import pyotp
 
 # apihelper.proxy = {
 #         'https': 'socks5h://{}:{}'.format('127.0.0.1','4444')
@@ -65,14 +66,16 @@ def decrypt(enc, password):
     return bytes.decode(unpad(cipher.decrypt(enc[16:])))
 
 # добавить блок
-def add_data(user, data, name, password, login=False, other=False):
+def add_data(user, data, name, password, login=False, other=False, totp=False):
     salt1 = get_salt()
     hash1 = get_password_hash(password, salt1)
     if login != False:
         login = encrypt(login, hash1)
     if other != False:
         other = encrypt(other, hash1)
-    data = models.Data.create(user=user, data=encrypt(data, hash1), login=login, name=name, salt=salt1, other=other)
+    if totp != False:
+        totp = encrypt(totp, hash1)
+    data = models.Data.create(user=user, data=encrypt(data, hash1), login=login, name=name, salt=salt1, other=other, totp=totp)
     data.save()
     return data
 
@@ -89,7 +92,11 @@ def get_data(data, password):
         enc2 = decrypt(data.other, hash)
     else:
         enc2 = None
-    return (enc, enc1, enc2)
+    if str(data.totp) != str(False):
+        enc3 = decrypt(data.totp, hash)
+    else:
+        enc3 = None
+    return (enc, enc1, enc2, enc3)
 
 def easy_encrypt(text, password, salt):
     hash = get_password_hash(password, salt)
@@ -127,6 +134,8 @@ def return_settings(block):
     button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
     button_2 = types.InlineKeyboardButton(text='Заметку', callback_data=f'reset-data-note_{block.uuid}')
     keyboard.add(button_1, button_2)
+    button_1 = types.InlineKeyboardButton(text='2FA', callback_data=f'reset-data-totp_{block.uuid}')
+    keyboard.add(button_1)
     button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
     keyboard.add(button_1)
     button_1 = types.InlineKeyboardButton(text='Поделиться', switch_inline_query=f'{block.uuid}')
@@ -134,15 +143,19 @@ def return_settings(block):
     return keyboard
 
 def return_block_text(block, data):
+    totp = data[3]
+    if totp:
+        totp = pyotp.TOTP(totp).now()
     return f"""Блок {block.name}
 Логин: {data[1]}
 Данные: {data[0]}
 Заметка: {data[2]}
+2FA (обновить): {totp}
 
 Удалите это сообщение по завершении."""
 
 def return_block_text_enc(block):
-    return f'Блок {block.name}\n\nДата создания: {block.creation_date}\nСоль: {block.salt}\nUUID: {block.uuid}\nЛогин: {block.login}\nДанные: {block.data}\nЗаметка: {block.other}\n\nДля расшифровки требуется пароль, чтобы расшифровать напишите @safepass_bot {block.uuid} [пароль]'
+    return f'Блок {block.name}\n\nДата создания: {block.creation_date}\nСоль: {block.salt}\nUUID: {block.uuid}\nЛогин: {block.login}\nДанные: {block.data}\nЗаметка: {block.other}\n2FA: {block.totp}\n\nДля расшифровки требуется пароль, чтобы расшифровать напишите @safepass_bot {block.uuid} [пароль]'
 
 @bot.inline_handler(lambda query: query.query)
 def query_text(inline_query):
@@ -234,6 +247,11 @@ def callback_inline(call):
         user.action = text + '_' + str(mid)
         user.save()
     elif spl[0] == 'reset-data-note':
+        bot.send_message(id, 'Введите пароль')
+        user = models.User.get(user_id=uid)
+        user.action = text
+        user.save()
+    elif spl[0] == 'reset-data-totp':
         bot.send_message(id, 'Введите пароль')
         user = models.User.get(user_id=uid)
         user.action = text
@@ -412,18 +430,38 @@ def com(message):
         if len(text) >= 800:
             bot.send_message(id, 'Слишком длинный текст')
         else:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            cancel = types.KeyboardButton('Остановить')
+            no = types.KeyboardButton('Нет')
+            markup.row(no, cancel)
             tmp = json.loads(user.tmp)
             if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
                 tmp['other'] = False
             else:
                 tmp['other'] = text
             user.tmp = json.dumps(tmp)
-            bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html')
+            bot.send_message(id, f"""Введите ключ для генерации кода 2FA (TOTP, если предостаавлен только QR, расшифруйте его с помощью @QrCodeTools, и отправьте значение secret).""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            user.action = 'data_totp'
+            user.save()
+    elif user.action == 'data_totp':
+        if len(text) >= 128:
+            bot.send_message(id, 'Слишком длинный текст')
+        else:
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+            cancel = types.KeyboardButton('Остановить')
+            markup.row(cancel)
+            tmp = json.loads(user.tmp)
+            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+                tmp['totp'] = False
+            else:
+                tmp['totp'] = text
+            user.tmp = json.dumps(tmp)
+            bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             user.action = 'data_key'
             user.save()
     elif user.action == 'data_key':
         tmp = json.loads(user.tmp)
-        add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'])
+        add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'], totp=tmp['totp'])
         bot.send_message(id, f"""Блок создан!
 
 Просмореть все блоки: /all""", disable_web_page_preview=True, parse_mode='html')
@@ -538,6 +576,26 @@ def com(message):
         else:
             block = models.Data.get(uuid=spl[1])
             block.other = easy_encrypt(text, user.tmp, block.salt)
+            block.save()
+            user.tmp = False
+            user.action = False
+            user.save()
+            bot.send_message(id, 'Успешно!')
+    elif spl[0] == 'reset-data-totp':
+        block = models.Data.get(uuid=spl[1])
+        if get_data(block, text)[0] == '':
+            bot.send_message(id, 'Неверный пароль!')
+        else:
+            user.tmp = text
+            user.action = 'reset-data-totp-done_'+spl[1]
+            user.save()
+            bot.send_message(id, 'Введите новые данные:')
+    elif spl[0] == 'reset-data-totp-done':
+        if len(text) >= 128:
+            bot.send_message(id, 'Слишком длинная заметка')
+        else:
+            block = models.Data.get(uuid=spl[1])
+            block.totp = easy_encrypt(text, user.tmp, block.salt)
             block.save()
             user.tmp = False
             user.action = False

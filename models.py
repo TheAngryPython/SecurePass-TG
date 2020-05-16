@@ -27,6 +27,7 @@ class Data(BaseModel):
     data = TextField()
     login = TextField(default=False)
     other = TextField(default=False)
+    totp = TextField(default=False)
     uuid = UUIDField(primary_key=True, default=uuid.uuid4)
     creation_date = DateField(default=datetime.datetime.now)
     salt = TextField()

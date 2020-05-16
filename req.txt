@@ -1,3 +1,4 @@
 pycryptodomex
 pyTelegramBotApi
 peewee
+pyotp
