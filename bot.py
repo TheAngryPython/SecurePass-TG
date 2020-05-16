@@ -294,7 +294,8 @@ def com(message):
 /add - добавить новый блок
 /generate_password [длина (16)] - генерироваь сложный пароль
 
-https://teletype.in/@safepass/2LDYgGrKq""", parse_mode='html')
+https://teletype.in/@safepass/2LDYgGrKq - О боте
+https://teletype.in/@safepass/0aJ_dUdBk - 2FA""", parse_mode='html', disable_web_page_preview=True)
 
 @bot.message_handler(commands=['generate_password'])
 def com(message):
