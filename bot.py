@@ -285,7 +285,7 @@ def com(message):
     for l in langs:
         button_1 = types.InlineKeyboardButton(text=l, callback_data=f'lang_{l}')
         keyboard.add(button_1)
-    bot.send_message(id, 'Language/Язык', disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
+    bot.send_message(id, 'Language/Язык\n\ntranslated by yandex', disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
 
 @bot.message_handler(commands=['help'])
 def com(message):
