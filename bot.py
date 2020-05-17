@@ -29,7 +29,7 @@ try:
     cfg = json.loads(open('cfg.txt', 'r').read())
 except:
     print('Config not found, using heroku settings')
-    cfg = {'token':os.environ['TOKEN'],'id':os.environ['ADMIN']}
+    cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
 
 bot = telebot.TeleBot(cfg['token'])
 requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands={json.dumps(commands)}')
@@ -384,7 +384,8 @@ def com(message):
         try:
             t = True
             models.Data.get(user=user,name=text)
-        except:
+        except Exception as e:
+            print(e)
             t = False
             if len(text) >= 50:
                 bot.send_message(id, ga('long', user.lang))
@@ -479,7 +480,8 @@ def com(message):
             cancel = types.KeyboardButton(ga('stop', user.lang))
             markup.row(cancel)
             bot.send_message(id, ga('block_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-        except:
+        except Exception as e:
+            print(e)
             bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'block_open':
         try:
@@ -492,14 +494,16 @@ def com(message):
                 user.action = False
                 user.save()
                 bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
-        except:
+        except Exception as e:
+            print(e)
             markup = types.ReplyKeyboardRemove()
             bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
     elif spl[0] == 'rename':
         try:
             models.Data.get(name=text)
             bot.send_message(id, ga('block_rename_ex', user.lang))
-        except:
+        except Exception as e:
+            print(e)
             if len(text) >= 50:
                 bot.send_message(id, ga('long_text', user.lang))
             else:
