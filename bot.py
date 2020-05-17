@@ -154,7 +154,10 @@ def return_settings(block, user):
 def return_block_text(block, data, user):
     totp = data[3]
     if totp:
-        totp = pyotp.TOTP(totp).now()
+        try:
+            totp = pyotp.TOTP(totp).now()
+        except:
+            totp = 'error'
     return ga('ret_bl_txt', user.lang).format(**locals())
 
 def return_block_text_enc(block, user):
