@@ -25,7 +25,11 @@ commands = [{'command':'start', 'description':'start'}, {'command':'settings', '
 folder = os.path.dirname(os.path.abspath(__file__))
 
 answers = json.loads(open('answers.txt', 'r').read())
-cfg = json.loads(open('cfg.txt', 'r').read())
+try:
+    cfg = json.loads(open('cfg.txt', 'r').read())
+except:
+    print('Config not found, using heroku settings')
+    cfg = {'token':os.environ['TOKEN'],'id':os.environ['ADMIN']}
 
 bot = telebot.TeleBot(cfg['token'])
 requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands={json.dumps(commands)}')
