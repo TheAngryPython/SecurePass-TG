@@ -20,10 +20,11 @@ import pyotp
 #         'https': 'socks5h://{}:{}'.format('127.0.0.1','4444')
 #     }
 
-commands = [{'command':'start', 'description':'start'}, {'command':'add', 'description':'add new block'}, {'command':'generate_password', 'description':'generate password [lenght]'}, {'command':'all', 'description':'view all you blocks'}, {'command':'help', 'description':'help'}]
+commands = [{'command':'start', 'description':'start'}, {'command':'settings', 'description':'settings'}, {'command':'add', 'description':'add new block'}, {'command':'generate_password', 'description':'generate password [lenght]'}, {'command':'all', 'description':'view all you blocks'}, {'command':'help', 'description':'help'}]
 
 folder = os.path.dirname(os.path.abspath(__file__))
 
+answers = json.loads(open('answers.txt', 'r').read())
 cfg = json.loads(open('cfg.txt', 'r').read())
 
 bot = telebot.TeleBot(cfg['token'])
@@ -32,6 +33,10 @@ requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands
 BLOCK_SIZE = 16
 pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
 unpad = lambda s: s[:-ord(s[len(s) - 1:])]
+
+# получить текст сообщения
+def ga(name, lang='en'):
+    return answers[name][lang]
 
 # генерация случайного пароля
 def random_password(size = 16):
@@ -117,45 +122,39 @@ def add_user(id, username = False, firstname = False, lastname = False):
     user.save()
     return user
 
-def return_settings(block):
+def return_settings(block, user):
     keyboard = types.InlineKeyboardMarkup()
-    button_1 = types.InlineKeyboardButton(text='Удалить', callback_data=f'1')
+    button_1 = types.InlineKeyboardButton(text=ga('delete', user.lang), callback_data=f'1')
     keyboard.add(button_1)
-    button_1 = types.InlineKeyboardButton(text='Блок', callback_data=f'delete_{block.uuid}')
-    button_2 = types.InlineKeyboardButton(text='Сообщение', callback_data=f'delete-message')
+    button_1 = types.InlineKeyboardButton(text=ga('block', user.lang), callback_data=f'delete_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text=ga('msg', user.lang), callback_data=f'delete-message')
     keyboard.add(button_1, button_2)
-    button_1 = types.InlineKeyboardButton(text='Переименовать Блок', callback_data=f'rename_{block.uuid}')
+    button_1 = types.InlineKeyboardButton(text=ga('re_bl', user.lang), callback_data=f'rename_{block.uuid}')
     keyboard.add(button_1)
-    button_1 = types.InlineKeyboardButton(text='Изменить', callback_data=f'1')
+    button_1 = types.InlineKeyboardButton(text=ga('ch', user.lang), callback_data=f'1')
     keyboard.add(button_1)
-    button_1 = types.InlineKeyboardButton(text='Пароль', callback_data=f'reset-pass_{block.uuid}')
-    button_2 = types.InlineKeyboardButton(text='Логин', callback_data=f'reset-data-login_{block.uuid}')
+    button_1 = types.InlineKeyboardButton(text=ga('pas', user.lang), callback_data=f'reset-pass_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text=ga('log', user.lang), callback_data=f'reset-data-login_{block.uuid}')
     keyboard.add(button_1, button_2)
-    button_1 = types.InlineKeyboardButton(text='Данные', callback_data=f'reset-data-pass_{block.uuid}')
-    button_2 = types.InlineKeyboardButton(text='Заметку', callback_data=f'reset-data-note_{block.uuid}')
+    button_1 = types.InlineKeyboardButton(text=ga('dt', user.lang), callback_data=f'reset-data-pass_{block.uuid}')
+    button_2 = types.InlineKeyboardButton(text=ga('nt', user.lang), callback_data=f'reset-data-note_{block.uuid}')
     keyboard.add(button_1, button_2)
     button_1 = types.InlineKeyboardButton(text='2FA', callback_data=f'reset-data-totp_{block.uuid}')
     keyboard.add(button_1)
-    button_1 = types.InlineKeyboardButton(text='Обновить', callback_data=f'update-block-msg_{block.uuid}')
+    button_1 = types.InlineKeyboardButton(text=ga('upd', user.lang), callback_data=f'update-block-msg_{block.uuid}')
     keyboard.add(button_1)
-    button_1 = types.InlineKeyboardButton(text='Поделиться', switch_inline_query=f'{block.uuid}')
+    button_1 = types.InlineKeyboardButton(text=ga('share', user.lang), switch_inline_query=f'{block.uuid}')
     keyboard.add(button_1)
     return keyboard
 
-def return_block_text(block, data):
+def return_block_text(block, data, user):
     totp = data[3]
     if totp:
         totp = pyotp.TOTP(totp).now()
-    return f"""Блок {block.name}
-Логин: {data[1]}
-Данные: {data[0]}
-Заметка: {data[2]}
-2FA (обновить): Код: {totp} Ключ: {data[3]}
+    return ga('ret_bl_txt', user.lang).format(**locals())
 
-Удалите это сообщение по завершении."""
-
-def return_block_text_enc(block):
-    return f'Блок {block.name}\n\nДата создания: {block.creation_date}\nСоль: {block.salt}\nUUID: {block.uuid}\nЛогин: {block.login}\nДанные: {block.data}\nЗаметка: {block.other}\n2FA: {block.totp}\n\nДля расшифровки требуется пароль, чтобы расшифровать напишите @safepass_bot {block.uuid} [пароль]'
+def return_block_text_enc(block, user):
+    return ga('ret_bl_txt_e', user.lang).format(**locals())
 
 @bot.inline_handler(lambda query: query.query)
 def query_text(inline_query):
@@ -171,43 +170,45 @@ def query_text(inline_query):
     if spl[0] == 'all':
         blocks = models.Data.filter(user=user)
         if len(blocks) == 0:
-            r = types.InlineQueryResultArticle(1, "У вас нет блоков!", types.InputTextMessageContent('У вас нет блоков!'))
+            r = types.InlineQueryResultArticle(1, "", types.InputTextMessageContent(ga('unit_n', user.lang)))
             bot.answer_inline_query(inline_query.id, [r], cache_time=1, is_personal=True)
         else:
             r = []
             i = 1
             for block in blocks:
-                r.append(types.InlineQueryResultArticle(i, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block))))
+                r.append(types.InlineQueryResultArticle(i, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user))))
                 i+=1
             bot.answer_inline_query(inline_query.id, r, cache_time=1, is_personal=True)
     else:
         try:
             block = models.Data.get(uuid=spl[0])
             if block.user != user:
-                r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
+                r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
                 bot.answer_inline_query(inline_query.id, [r])
             else:
                 if spl[1] != '':
                     data = get_data(block, spl[1])
                     if data[0] == '':
-                        r = types.InlineQueryResultArticle(1, 'Неверный пароль!', types.InputTextMessageContent('Неверный пароль!'))
-                        r1 = types.InlineQueryResultArticle(2, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block)))
+                        r = types.InlineQueryResultArticle(1, ga('pass_not_ex', user.lang), types.InputTextMessageContent(ga('pass_not_ex', user.lang)))
+                        r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                         bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
                     else:
-                        r = types.InlineQueryResultArticle(1, f'Блок {block.name}', types.InputTextMessageContent(return_block_text(block, data)))
+                        r = types.InlineQueryResultArticle(1, ga('block', user.lang)+f' {block.name}', types.InputTextMessageContent(return_block_text(block, data, user)))
                         bot.answer_inline_query(inline_query.id, [r], is_personal=True, cache_time=1)
                 else:
-                    r = types.InlineQueryResultArticle(1, "Введите пароль", types.InputTextMessageContent('Введите пароль'))
-                    r1 = types.InlineQueryResultArticle(2, block.name + ' encrypted', types.InputTextMessageContent(return_block_text_enc(block)))
+                    r = types.InlineQueryResultArticle(1, ga('enter_pass', user.lang), types.InputTextMessageContent(ga('enter_pass', user.lang)))
+                    r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                     bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
         except Exception as e:
-            r = types.InlineQueryResultArticle(1, "Блок не найден!", types.InputTextMessageContent('Блок не найден!'))
+            print(e)
+            r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
             bot.answer_inline_query(inline_query.id, [r])
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     text = call.data
     uid = call.from_user.id
+    user = models.User.get(user_id=uid)
     mid = call.message.message_id
     spl = text.split('_')
     id = int(call.message.json['chat']['id'])
@@ -222,40 +223,37 @@ def callback_inline(call):
         models.Data.get(uuid=spl[1]).delete_instance()
         bot.delete_message(id, mid)
     elif spl[0] == 'rename':
-        bot.send_message(id, 'Напишите новое название:')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_new_name', user.lang))
         user.action = text
         user.save()
     elif spl[0] == 'reset-pass':
-        bot.send_message(id, 'Введите старый пароль от Блока:')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_old_pass', user.lang))
         user.action = text
         user.save()
     elif spl[0] == 'reset-data-login':
-        bot.send_message(id, 'Введите пароль от Блока:')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_pass', user.lang))
         user.action = text
         user.save()
     elif spl[0] == 'reset-data-pass':
-        bot.send_message(id, 'Введите пароль от Блока:')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_pass', user.lang))
         user.action = text
         user.save()
     elif spl[0] == 'update-block-msg':
-        bot.send_message(id, 'Введите пароль')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_pass', user.lang))
         user.action = text + '_' + str(mid)
         user.save()
     elif spl[0] == 'reset-data-note':
-        bot.send_message(id, 'Введите пароль')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_pass', user.lang))
         user.action = text
         user.save()
     elif spl[0] == 'reset-data-totp':
-        bot.send_message(id, 'Введите пароль')
-        user = models.User.get(user_id=uid)
+        bot.send_message(id, ga('enter_pass', user.lang))
         user.action = text
         user.save()
+    elif spl[0] == 'lang':
+        user.lang = spl[1]
+        user.save()
+        bot.send_message(id, ga('suc', user.lang))
 
 @bot.message_handler(commands=['admin_recover_bd'])
 def admin_recover_bd(message):
@@ -273,12 +271,21 @@ def com(message):
     id = m.chat.id
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
-    bot.send_message(id, f"""Привет {user.firstname}, я бот который будет надёжно хранить твои данные в безопасном хранилище!
-● Надёжное AES-256 шифрование твоим паролем
-● Пароль нигде не хранится (даже хэш), сообщение с ним удаляется
-● Полностью открытый <a href="https://github.com/TheAngryPython/SecurePass-TG">исходный код</a>. Ты можешь сам убедиться в нашей честности.
+    bot.send_message(id, ga('start',user.lang).format(**locals()), disable_web_page_preview=True, parse_mode='html')
 
-Для того чтобы начать напиши /add""", disable_web_page_preview=True, parse_mode='html')
+@bot.message_handler(commands=['settings'])
+def com(message):
+    m = message
+    text = m.text
+    id = m.chat.id
+    uid = m.from_user.id
+    langs = ['ru', 'en', 'it', 'fr', 'de', 'uk', 'pl']
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
+    keyboard = types.InlineKeyboardMarkup()
+    for l in langs:
+        button_1 = types.InlineKeyboardButton(text=l, callback_data=f'lang_{l}')
+        keyboard.add(button_1)
+    bot.send_message(id, 'Language/Язык', disable_web_page_preview=True, parse_mode='html', reply_markup=keyboard)
 
 @bot.message_handler(commands=['help'])
 def com(message):
@@ -287,15 +294,7 @@ def com(message):
     id = m.chat.id
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
-    bot.send_message(id, f"""Команды:
-/start - старт
-/help - помощь
-/all - все блоки
-/add - добавить новый блок
-/generate_password [длина (16)] - генерироваь сложный пароль
-
-https://teletype.in/@safepass/2LDYgGrKq - О боте
-https://teletype.in/@safepass/0aJ_dUdBk - 2FA""", parse_mode='html', disable_web_page_preview=True)
+    bot.send_message(id, ga('help', user.lang).format(**locals()), parse_mode='html', disable_web_page_preview=True)
 
 @bot.message_handler(commands=['generate_password'])
 def com(message):
@@ -322,14 +321,14 @@ def com(message):
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
     if len(models.Data.filter(user=user)) >= 50:
-        bot.send_message(id, 'Вы превысили лимит в 50 блоков, для его увелечения обратитесь к @EgTer')
+        bot.send_message(id, ga('block_limit', user.lang))
     else:
         user.action = 'data_name'
         user.save()
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        cancel = types.KeyboardButton('Остановить')
+        cancel = types.KeyboardButton(ga('stop',user.lang))
         markup.row(cancel)
-        bot.send_message(id, f"""{user.firstname}, напиши название блока (не шифруется, для вашего удобства). (Помните, что во время создания блока данные хранятся в незашифрованном виде)""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        bot.send_message(id, ga('block_name',user.lang).format(**locals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
 
 @bot.message_handler(commands=['all'])
 def com(message):
@@ -347,10 +346,10 @@ def com(message):
         for block in blocks:
             btn = types.KeyboardButton(block.name)
             markup.row(btn)
-        bot.send_message(id, f"""Вот твои блоки""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        bot.send_message(id, ga('you_blocks',user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
     else:
         markup = types.ReplyKeyboardRemove()
-        bot.send_message(id, f"""У тебя нет блоков. Создать /add""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        bot.send_message(id, ga('none_blocks',user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
 
 @bot.message_handler(content_types=['text'])
 def com(message):
@@ -371,12 +370,12 @@ def com(message):
             spl[i]
         except:
             spl.append('')
-    if text.lower() == 'Остановить'.lower() or text.lower() == 'Stop'.lower():
+    if text.lower() == ga('stop', user.lang).lower().replace('\n',''):
         user.action = False
         user.tmp = False
         user.save()
         markup = types.ReplyKeyboardRemove()
-        bot.send_message(id, f"""Действие прервано""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        bot.send_message(id, ga('stopped', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
     elif user.action == 'data_name':
         try:
             t = True
@@ -384,88 +383,86 @@ def com(message):
         except:
             t = False
             if len(text) >= 50:
-                bot.send_message(id, 'Слишком длинное название!')
+                bot.send_message(id, ga('long', user.lang))
             else:
                 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-                cancel = types.KeyboardButton('Остановить')
-                no = types.KeyboardButton('Нет')
+                cancel = types.KeyboardButton(ga('stop', user.lang))
+                no = types.KeyboardButton(ga('no', user.lang))
                 markup.row(no, cancel)
                 tmp = {'name': text}
                 user.tmp = json.dumps(tmp)
-                bot.send_message(id, f"""Хорошо, теперь отправь логин (если не требуется нажми "Нет").""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                bot.send_message(id, ga('data_login', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
                 user.action = 'data_login'
                 user.save()
         if t:
-            bot.send_message(id, f"""У вас уже есть блок с таким названием.""", disable_web_page_preview=True, parse_mode='html')
+            bot.send_message(id, ga('data_login_exist', user.lang), disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'data_login':
         if len(text) >= 100:
-            bot.send_message(id, 'Слишком длинный логин')
+            bot.send_message(id, ga('long_login', user.lang))
         else:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
+            cancel = types.KeyboardButton(ga('stop', user.lang))
             markup.row(cancel)
             tmp = json.loads(user.tmp)
-            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+            if text.lower() == ga('no', user.lang).replace('\n','').lower():
                 tmp['login'] = False
             else:
                 tmp['login'] = text
             user.tmp = json.dumps(tmp)
-            bot.send_message(id, f"""Дальше идёт сам блок с данными (пароль, пин-код, кодовое слово).""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('data_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             user.action = 'data_password'
             user.save()
     elif user.action == 'data_password':
         if len(text) >= 3000:
-            bot.send_message(id, 'Слишком длинный текст')
+            bot.send_message(id, ga('long_text', user.lang))
         else:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
-            no = types.KeyboardButton('Нет')
+            cancel = types.KeyboardButton(ga('stop', user.lang))
+            no = types.KeyboardButton(ga('no', user.lang))
             markup.row(no, cancel)
             tmp = json.loads(user.tmp)
             tmp['password'] = text
             user.tmp = json.dumps(tmp)
-            bot.send_message(id, f"""Напишите заметку к блоку""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('data_note', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             user.action = 'data_other'
             user.save()
     elif user.action == 'data_other':
         if len(text) >= 800:
-            bot.send_message(id, 'Слишком длинный текст')
+            bot.send_message(id, ga('long_text', user.lang))
         else:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
-            no = types.KeyboardButton('Нет')
+            cancel = types.KeyboardButton(ga('stop', user.lang))
+            no = types.KeyboardButton(ga('no', user.lang))
             markup.row(no, cancel)
             tmp = json.loads(user.tmp)
-            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+            if text.lower() == ga('no', user.lang).replace('\n','').lower():
                 tmp['other'] = False
             else:
                 tmp['other'] = text
             user.tmp = json.dumps(tmp)
-            bot.send_message(id, f"""Введите ключ для генерации кода 2FA (TOTP, если предостаавлен только QR, расшифруйте его с помощью @QrCodeTools, и отправьте значение secret).""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('data_totp', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             user.action = 'data_totp'
             user.save()
     elif user.action == 'data_totp':
         if len(text) >= 128:
-            bot.send_message(id, 'Слишком длинный текст')
+            bot.send_message(id, ga('long_text', user.lang))
         else:
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
+            cancel = types.KeyboardButton(ga('stop', user.lang))
             markup.row(cancel)
             tmp = json.loads(user.tmp)
-            if text.lower() == 'Нет'.lower() or text.lower() == 'No'.lower():
+            if text.lower() == ga('no', user.lang).replace('\n','').lower():
                 tmp['totp'] = False
             else:
                 tmp['totp'] = text
             user.tmp = json.dumps(tmp)
-            bot.send_message(id, f"""Теперь нужен ключ для шифрования всех этих данных.""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('data_key', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             user.action = 'data_key'
             user.save()
     elif user.action == 'data_key':
         tmp = json.loads(user.tmp)
         add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'], totp=tmp['totp'])
-        bot.send_message(id, f"""Блок создан!
-
-Просмореть все блоки: /all""", disable_web_page_preview=True, parse_mode='html')
+        bot.send_message(id, ga('block_created', user.lang), disable_web_page_preview=True, parse_mode='html')
         user.action = False
         user.save()
     elif user.action == 'block_see':
@@ -475,48 +472,48 @@ def com(message):
             user.tmp = text
             user.save()
             markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton('Остановить')
+            cancel = types.KeyboardButton(ga('stop', user.lang))
             markup.row(cancel)
-            bot.send_message(id, f"""Введи пароль от блока""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('block_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
         except:
-            bot.send_message(id, f"""Такого блока не существует""", disable_web_page_preview=True, parse_mode='html')
+            bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'block_open':
         try:
             block = models.Data.get(user=user,name=user.tmp)
             data = get_data(block, text)
             if not data[0]:
                 markup = types.ReplyKeyboardRemove()
-                bot.send_message(id, f"""Неправильный пароль от блока {block.name}""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                bot.send_message(id, ga('pass_not', user.lang).format(**globals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
             else:
                 user.action = False
                 user.save()
-                bot.send_message(id, return_block_text(block, data), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
+                bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
         except:
             markup = types.ReplyKeyboardRemove()
-            bot.send_message(id, f"""Блок не найден!""", disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
     elif spl[0] == 'rename':
         try:
             models.Data.get(name=text)
-            bot.send_message(id, 'Блок с таким названием уже есть!')
+            bot.send_message(id, ga('block_rename_ex', user.lang))
         except:
             if len(text) >= 50:
-                bot.send_message(id, 'Слишком длинное название!')
+                bot.send_message(id, ga('long_text', user.lang))
             else:
                 user.action = False
                 user.save()
                 block = models.Data.get(uuid=spl[1])
                 block.name = text
                 block.save()
-                bot.send_message(id, 'Успешно!')
+                bot.send_message(id,  ga('suc', user.lang))
     elif spl[0] == 'reset-pass':
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.tmp = text
             user.action = 'reset-pass-done_'+spl[1]
             user.save()
-            bot.send_message(id, 'Введите новый пароль:')
+            bot.send_message(id, ga('new_pass', user.lang))
     elif spl[0] == 'reset-pass-done':
         block = models.Data.get(uuid=spl[1])
         data = get_data(block, user.tmp)
@@ -527,16 +524,16 @@ def com(message):
         user.tmp = False
         user.action = False
         user.save()
-        bot.send_message(id, 'Пароль изменён!')
+        bot.send_message(id, ga('pass_ch', user.lang))
     elif spl[0] == 'reset-data-login':
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.tmp = text
             user.action = 'reset-data-login-done_'+spl[1]
             user.save()
-            bot.send_message(id, 'Введите новый логин:')
+            bot.send_message(id, ga('new_data', user.lang))
     elif spl[0] == 'reset-data-login-done':
         block = models.Data.get(uuid=spl[1])
         block.login = easy_encrypt(text, user.tmp, block.salt)
@@ -544,16 +541,16 @@ def com(message):
         user.tmp = False
         user.action = False
         user.save()
-        bot.send_message(id, 'Успешно!')
+        bot.send_message(id, ga('suc', user.lang))
     elif spl[0] == 'reset-data-pass':
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.tmp = text
             user.action = 'reset-data-pass-done_'+spl[1]
             user.save()
-            bot.send_message(id, 'Введите новые данные:')
+            bot.send_message(id, ga('new_data', user.lang))
     elif spl[0] == 'reset-data-pass-done':
         block = models.Data.get(uuid=spl[1])
         block.data = easy_encrypt(text, user.tmp, block.salt)
@@ -561,19 +558,19 @@ def com(message):
         user.tmp = False
         user.action = False
         user.save()
-        bot.send_message(id, 'Успешно!')
+        bot.send_message(id, ga('suc', user.lang))
     elif spl[0] == 'reset-data-note':
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.tmp = text
             user.action = 'reset-data-note-done_'+spl[1]
             user.save()
-            bot.send_message(id, 'Введите новые данные:')
+            bot.send_message(id, ga('new_data', user.lang))
     elif spl[0] == 'reset-data-note-done':
         if len(text) >= 800:
-            bot.send_message(id, 'Слишком длинная заметка')
+            bot.send_message(id, ga('long_text', user.lang))
         else:
             block = models.Data.get(uuid=spl[1])
             block.other = easy_encrypt(text, user.tmp, block.salt)
@@ -581,19 +578,19 @@ def com(message):
             user.tmp = False
             user.action = False
             user.save()
-            bot.send_message(id, 'Успешно!')
+            bot.send_message(id, ga('suc', user.lang))
     elif spl[0] == 'reset-data-totp':
         block = models.Data.get(uuid=spl[1])
         if get_data(block, text)[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.tmp = text
             user.action = 'reset-data-totp-done_'+spl[1]
             user.save()
-            bot.send_message(id, 'Введите новые данные:')
+            bot.send_message(id, ga('new_data', user.lang))
     elif spl[0] == 'reset-data-totp-done':
         if len(text) >= 128:
-            bot.send_message(id, 'Слишком длинная заметка')
+            bot.send_message(id, ga('long_text', user.lang))
         else:
             block = models.Data.get(uuid=spl[1])
             block.totp = easy_encrypt(text, user.tmp, block.salt)
@@ -601,17 +598,17 @@ def com(message):
             user.tmp = False
             user.action = False
             user.save()
-            bot.send_message(id, 'Успешно!')
+            bot.send_message(id, ga('suc', user.lang))
     elif spl[0] == 'update-block-msg':
         block = models.Data.get(uuid=spl[1])
         data = get_data(block, text)
         if data[0] == '':
-            bot.send_message(id, 'Неверный пароль!')
+            bot.send_message(id, ga('pass_not_ex', user.lang))
         else:
             user.action = False
             user.save()
             try:
-                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = return_block_text(block, data), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block))
+                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
             except:
                 pass
 
