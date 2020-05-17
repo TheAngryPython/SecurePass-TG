@@ -16,7 +16,7 @@ class User(BaseModel):
     username = CharField(default=False)
     firstname = CharField(default=False)
     lastname = CharField(default=False)
-    lang = CharField(default='en')
+    lang = TextField(default='en')
     register_date = DateField(default=datetime.datetime.now)
     uuid = UUIDField(primary_key=True, default=uuid.uuid4)
     action = TextField(default=False)
