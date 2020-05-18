@@ -29,12 +29,8 @@ try:
     cfg = json.loads(open('cfg.txt', 'r').read())
     print('Config found, using config settings')
 except:
-    try:
-        cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
-        print('Config not found, using heroku settings')
-    except:
-        print('Heroku enivron keys not found')
-        cfg = {'token':input('token: '),'id':int(input('id: '))}
+    cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
+    print('Config not found, using heroku settings')ы
 
 bot = telebot.TeleBot(cfg['token'])
 requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands={json.dumps(commands)}')
