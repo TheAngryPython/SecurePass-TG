@@ -27,9 +27,14 @@ folder = os.path.dirname(os.path.abspath(__file__))
 answers = json.loads(open('answers.txt', 'r').read())
 try:
     cfg = json.loads(open('cfg.txt', 'r').read())
+    print('Config found, using config settings')
 except:
-    print('Config not found, using heroku settings')
-    cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
+    try:
+        cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
+        print('Config not found, using heroku settings')
+    except:
+        print('Heroku enivron keys not found')
+        cfg = {'token':input('token: '),'id':int(input('id: '))}
 
 bot = telebot.TeleBot(cfg['token'])
 requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands={json.dumps(commands)}')
@@ -37,6 +42,8 @@ requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands
 BLOCK_SIZE = 16
 pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(s) % BLOCK_SIZE)
 unpad = lambda s: s[:-ord(s[len(s) - 1:])]
+
+langs = ['ru', 'en', 'it', 'fr', 'de', 'uk', 'pl']
 
 # получить текст сообщения
 def ga(name, lang='en'):
@@ -112,7 +119,7 @@ def easy_encrypt(text, password, salt):
     return encrypt(text, hash)
 
 # добавить/обновить пользвателя
-def add_user(id, username = False, firstname = False, lastname = False):
+def add_user(id, username = False, firstname = False, lastname = False, lang = False):
     try:
         user = models.User.get(user_id=id)
         if username:
@@ -121,8 +128,10 @@ def add_user(id, username = False, firstname = False, lastname = False):
             user.firstname = firstname or False
         if lastname:
             user.lastname = lastname or False
+        if lang:
+            user.lang = lang or 'en'
     except:
-        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False)
+        user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False, lang = lang or 'en')
     user.save()
     return user
 
@@ -277,7 +286,12 @@ def com(message):
     text = m.text
     id = m.chat.id
     uid = m.from_user.id
-    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
+    lang = m.from_user
+    if lang not in langs:
+        lang = 'en'
+    else:
+        lang = 'en'
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name, lang = lang)
     bot.send_message(id, ga('start',user.lang).format(**locals()), disable_web_page_preview=True, parse_mode='html')
 
 @bot.message_handler(commands=['settings'])
@@ -286,7 +300,6 @@ def com(message):
     text = m.text
     id = m.chat.id
     uid = m.from_user.id
-    langs = ['ru', 'en', 'it', 'fr', 'de', 'uk', 'pl']
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
     keyboard = types.InlineKeyboardMarkup()
     for l in langs:
