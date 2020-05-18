@@ -128,8 +128,6 @@ def add_user(id, username = False, firstname = False, lastname = False, lang = F
             user.firstname = firstname or False
         if lastname:
             user.lastname = lastname or False
-        if lang:
-            user.lang = lang or 'en'
     except:
         user = models.User.create(user_id = id, username = username or False, firstname = firstname or False, lastname = lastname or False, lang = lang or 'en')
     user.save()
