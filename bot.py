@@ -275,8 +275,11 @@ def admin_recover_bd(message):
     text = m.text
     id = m.chat.id
     uid = m.from_user.id
+    user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
     if uid == int(cfg['id']):
         bot.send_document(id, open('db.db', 'rb'), caption = '#db')
+    else:
+        bot.send_message(id, ga('access_denied',user.lang))
 
 @bot.message_handler(commands=['start'])
 def com(message):
@@ -634,4 +637,8 @@ def com(message):
             except:
                 pass
 
-bot.polling(none_stop=True, timeout=123)
+while 1:
+    try:
+        bot.polling(none_stop=True, timeout=123)
+    except Exception as e:
+        print(f'error {e}')
