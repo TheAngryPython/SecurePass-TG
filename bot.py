@@ -637,8 +637,4 @@ def com(message):
             except:
                 pass
 
-while 1:
-    try:
-        bot.polling(none_stop=True, timeout=123)
-    except Exception as e:
-        print(f'error {e}')
+bot.polling(none_stop=True, timeout=123)
