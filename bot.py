@@ -30,7 +30,7 @@ try:
     print('Config found, using config settings')
 except:
     cfg = {'token':os.environ['TOKEN'],'id':int(os.environ['ADMIN'])}
-    print('Config not found, using heroku settings')ы
+    print('Config not found, using heroku settings')
 
 bot = telebot.TeleBot(cfg['token'])
 requests.get(f'https://api.telegram.org/bot{cfg["token"]}/setMyCommands?commands={json.dumps(commands)}')
