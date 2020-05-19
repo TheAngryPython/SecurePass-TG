@@ -84,7 +84,10 @@ def add_data(user, data, name, password, login=False, other=False, totp=False):
     if login != False:
         login = encrypt(login, hash1)
     if other != False:
-        other = encrypt(other, hash1)
+        try:
+            other = encrypt(other, hash1)
+        except:
+            other = 'error'
     if totp != False:
         totp = encrypt(totp, hash1)
     data = models.Data.create(user=user, data=encrypt(data, hash1), login=login, name=name, salt=salt1, other=other, totp=totp)
