@@ -311,7 +311,7 @@ def com(message):
     id = m.chat.id
     uid = m.from_user.id
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name)
-    bot.send_message(id, ga('help', user.lang).format(**locals())+'\nbot by @EgTer', parse_mode='html', disable_web_page_preview=True)
+    bot.send_message(id, ga('help', user.lang).format(**locals()), parse_mode='html', disable_web_page_preview=True)
 
 @bot.message_handler(commands=['generate_password'])
 def com(message):
