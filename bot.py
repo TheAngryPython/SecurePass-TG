@@ -164,7 +164,7 @@ def return_block_text(block, data, user):
     return ga('ret_bl_txt', user.lang).format(**locals())
 
 def return_block_text_enc(block, user):
-    return ga('ret_bl_txt_e', user.lang).format(**locals())
+    return ga('ret_bl_txt_e', user.lang).format(**locals()).replace('\\n', '\n')
 
 @bot.inline_handler(lambda query: query.query)
 def query_text(inline_query):
