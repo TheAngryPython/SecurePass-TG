@@ -289,7 +289,7 @@ def com(message):
     else:
         lang = 'en'
     user = add_user(id = uid, username =  m.from_user.username, firstname =  m.from_user.first_name, lastname =  m.from_user.last_name, lang = lang)
-    bot.send_message(id, ga('start',user.lang).format(**locals())+'\nbot by @EgTer', disable_web_page_preview=True, parse_mode='html')
+    bot.send_message(id, ga('start',user.lang).format(**locals())+'\nbot by @EgTer, original @safepass_bot', disable_web_page_preview=True, parse_mode='html')
 
 @bot.message_handler(commands=['settings'])
 def com(message):
