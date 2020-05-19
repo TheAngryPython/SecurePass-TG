@@ -356,7 +356,7 @@ def com(message):
     user.action = 'block_see'
     user.tmp = False
     user.save()
-    blocks = models.Data.filter(user=user).order_by("name")
+    blocks = models.Data.filter(user=user).order_by("-name")
     if len(blocks) != 0:
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         for block in blocks:
