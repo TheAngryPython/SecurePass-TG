@@ -1,24 +1,36 @@
+# -*- coding: utf-8 -*-
 import json, requests
 
 key = json.loads(open('cfg.txt', 'r').read())['yandex']
 cfg = json.loads(open('answers.txt', 'r').read())
-langs = ['en', 'it', 'fr', 'de', 'uk', 'pl']
+langs = ['ru', 'en', 'it', 'fr', 'de', 'uk', 'pl']
 format = 'https://translate.yandex.net/api/v1.5/tr.json/translate?key={key}&text={text}&lang={lang}&format=plain'
+orig = input(f'orig ({langs[0]}): ') or langs[0]
+while orig not in langs:
+    print('orig not in langs!')
+    orig = input(f'orig ({langs[0]}): ') or langs[0]
 
 while 1:
     try:
+        lst = []
         name = input('name: ')
-        val = input('value: ') + '\n'
+        print('value: ', end='')
         while 1:
             inp = input()
             if inp.find('EOF') != -1:
-                val += inp.replace('EOF','')
+                t=inp.replace('EOF','')
+                if t:
+                    lst.append(t)
+                val = '\n'.join(lst)
                 break
-            val += inp + '\n'
+            else:
+                lst.append(inp)
         cfg[name] = {}
-        cfg[name]['ru'] = val
+        cfg[name][orig] = val
         for lang in langs:
-            print(f'rquesting {lang}:')
+            if lang == orig:
+                continue
+            print(f'requesting {lang}:')
             answer = json.loads(requests.get(format.format(lang=lang,text=val,key=key)).text)['text'][0]
             cfg[name][lang] = answer
             print(answer)
