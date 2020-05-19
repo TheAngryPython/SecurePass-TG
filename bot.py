@@ -210,7 +210,6 @@ def query_text(inline_query):
                     r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                     bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
         except Exception as e:
-            print(e)
             r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
             bot.answer_inline_query(inline_query.id, [r])
 
@@ -398,7 +397,6 @@ def com(message):
             t = True
             models.Data.get(user=user,name=text)
         except Exception as e:
-            print(e)
             t = False
             if len(text) >= 50:
                 bot.send_message(id, ga('long', user.lang))
@@ -494,7 +492,6 @@ def com(message):
             markup.row(cancel)
             bot.send_message(id, ga('block_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
         except Exception as e:
-            print(e)
             bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html')
     elif user.action == 'block_open':
         try:
@@ -508,7 +505,6 @@ def com(message):
                 user.save()
                 bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
         except Exception as e:
-            print(e)
             markup = types.ReplyKeyboardRemove()
             bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
     elif spl[0] == 'rename':
@@ -516,7 +512,6 @@ def com(message):
             models.Data.get(name=text)
             bot.send_message(id, ga('block_rename_ex', user.lang))
         except Exception as e:
-            print(e)
             if len(text) >= 50:
                 bot.send_message(id, ga('long_text', user.lang))
             else:
