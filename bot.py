@@ -4,7 +4,9 @@
 import base64
 from Cryptodome.Cipher import AES
 from Cryptodome import Random
-from Cryptodome.Protocol.KDF import PBKDF2
+# from Cryptodome.Protocol.KDF import PBKDF2
+from Cryptodome.Util.Padding import pad as pad1, unpad as unpad1
+from pbkdf2 import PBKDF2
 import random
 import os
 import sys
@@ -59,8 +61,8 @@ def get_salt():
 # получить хэш пароля
 def get_password_hash(password, salt):
     salt = salt.encode()
-    kdf = PBKDF2(password, salt, 64, 1000)
-    key = kdf[:32]
+    kdf = PBKDF2(password, salt)
+    key = kdf.read(32)
     return key
 
 # зашифровать
@@ -69,7 +71,7 @@ def encrypt(raw, password):
     raw = pad(raw)
     iv = Random.new().read(AES.block_size)
     cipher = AES.new(private_key, AES.MODE_CBC, iv)
-    return bytes.decode(base64.b64encode(iv + cipher.encrypt(raw.encode())))
+    return bytes.decode(base64.b64encode(iv + cipher.encrypt(pad1(raw.encode(), BLOCK_SIZE))))
 
 # расшифровать
 def decrypt(enc, password):
@@ -170,6 +172,12 @@ def return_block_text(block, data, user):
 
 def return_block_text_enc(block, user):
     return ga('ret_bl_txt_e', user.lang).format(**locals()).replace('\\n', '\n')
+
+def err_send(e, ex):
+    ex = sys.exc_info()
+    ex = '\n'.join(traceback.format_exception(*ex))
+    bot.send_message(int(cfg['id']), f'Error: {str(e)}\n\ntraceback: {ex}')
+    del ex
 
 @bot.inline_handler(lambda query: query.query)
 def query_text(inline_query):
@@ -512,6 +520,7 @@ def com(message):
                     bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
             except Exception as e:
                 markup = types.ReplyKeyboardRemove()
+                err_send(e, sys.exc_info())
                 bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
         elif spl[0] == 'rename':
             try:

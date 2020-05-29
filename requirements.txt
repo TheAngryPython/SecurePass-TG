@@ -2,3 +2,4 @@ pycryptodomex
 pyTelegramBotApi
 peewee
 pyotp
+pbkdf2
