@@ -35,7 +35,7 @@ while 1:
             cfg[name][lang] = answer
             print(answer)
         f = open('answers.txt', 'w')
-        f.write(json.dumps(cfg))
+        f.write(json.dumps(cfg, indent=1))
         f.close()
     except:
         print('exit')
