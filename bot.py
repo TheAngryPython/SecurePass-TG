@@ -7,6 +7,7 @@ from Cryptodome import Random
 from Cryptodome.Protocol.KDF import PBKDF2
 import random
 import os
+import sys
 import models
 import telebot
 from telebot import *
@@ -15,6 +16,7 @@ import requests
 import string
 import random
 import pyotp
+import traceback
 
 # apihelper.proxy = {
 #         'https': 'socks5h://{}:{}'.format('127.0.0.1','4444')
@@ -389,246 +391,253 @@ def com(message):
             spl[i]
         except:
             spl.append('')
-    if text.lower() == ga('stop', user.lang).lower().replace('\n',''):
-        user.action = False
-        user.tmp = False
-        user.save()
-        markup = types.ReplyKeyboardRemove()
-        bot.send_message(id, ga('stopped', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-    elif user.action == 'data_name':
-        try:
-            t = True
-            models.Data.get(user=user,name=text)
-        except Exception as e:
-            t = False
-            if len(text) >= 50:
-                bot.send_message(id, ga('long', user.lang))
+    try:
+        if text.lower() == ga('stop', user.lang).lower().replace('\n',''):
+            user.action = False
+            user.tmp = False
+            user.save()
+            markup = types.ReplyKeyboardRemove()
+            bot.send_message(id, ga('stopped', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        elif user.action == 'data_name':
+            try:
+                t = True
+                models.Data.get(user=user,name=text)
+            except Exception as e:
+                t = False
+                if len(text) >= 50:
+                    bot.send_message(id, ga('long', user.lang))
+                else:
+                    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                    cancel = types.KeyboardButton(ga('stop', user.lang))
+                    no = types.KeyboardButton(ga('no', user.lang))
+                    markup.row(no, cancel)
+                    tmp = {'name': text}
+                    user.tmp = json.dumps(tmp)
+                    bot.send_message(id, ga('data_login', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                    user.action = 'data_login'
+                    user.save()
+            if t:
+                bot.send_message(id, ga('data_login_exist', user.lang), disable_web_page_preview=True, parse_mode='html')
+        elif user.action == 'data_login':
+            if len(text) >= 100:
+                bot.send_message(id, ga('long_login', user.lang))
+            else:
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                cancel = types.KeyboardButton(ga('stop', user.lang))
+                markup.row(cancel)
+                tmp = json.loads(user.tmp)
+                if text.lower() == ga('no', user.lang).replace('\n','').lower():
+                    tmp['login'] = False
+                else:
+                    tmp['login'] = text
+                user.tmp = json.dumps(tmp)
+                bot.send_message(id, ga('data_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                user.action = 'data_password'
+                user.save()
+        elif user.action == 'data_password':
+            if len(text) >= 3000:
+                bot.send_message(id, ga('long_text', user.lang))
             else:
                 markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
                 cancel = types.KeyboardButton(ga('stop', user.lang))
                 no = types.KeyboardButton(ga('no', user.lang))
                 markup.row(no, cancel)
-                tmp = {'name': text}
+                tmp = json.loads(user.tmp)
+                tmp['password'] = text
                 user.tmp = json.dumps(tmp)
-                bot.send_message(id, ga('data_login', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-                user.action = 'data_login'
+                bot.send_message(id, ga('data_note', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                user.action = 'data_other'
                 user.save()
-        if t:
-            bot.send_message(id, ga('data_login_exist', user.lang), disable_web_page_preview=True, parse_mode='html')
-    elif user.action == 'data_login':
-        if len(text) >= 100:
-            bot.send_message(id, ga('long_login', user.lang))
-        else:
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton(ga('stop', user.lang))
-            markup.row(cancel)
-            tmp = json.loads(user.tmp)
-            if text.lower() == ga('no', user.lang).replace('\n','').lower():
-                tmp['login'] = False
-            else:
-                tmp['login'] = text
-            user.tmp = json.dumps(tmp)
-            bot.send_message(id, ga('data_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            user.action = 'data_password'
-            user.save()
-    elif user.action == 'data_password':
-        if len(text) >= 3000:
-            bot.send_message(id, ga('long_text', user.lang))
-        else:
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton(ga('stop', user.lang))
-            no = types.KeyboardButton(ga('no', user.lang))
-            markup.row(no, cancel)
-            tmp = json.loads(user.tmp)
-            tmp['password'] = text
-            user.tmp = json.dumps(tmp)
-            bot.send_message(id, ga('data_note', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            user.action = 'data_other'
-            user.save()
-    elif user.action == 'data_other':
-        if len(text) >= 800:
-            bot.send_message(id, ga('long_text', user.lang))
-        else:
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton(ga('stop', user.lang))
-            no = types.KeyboardButton(ga('no', user.lang))
-            markup.row(no, cancel)
-            tmp = json.loads(user.tmp)
-            if text.lower() == ga('no', user.lang).replace('\n','').lower():
-                tmp['other'] = False
-            else:
-                tmp['other'] = text
-            user.tmp = json.dumps(tmp)
-            bot.send_message(id, ga('data_totp', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            user.action = 'data_totp'
-            user.save()
-    elif user.action == 'data_totp':
-        if len(text) >= 128:
-            bot.send_message(id, ga('long_text', user.lang))
-        else:
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton(ga('stop', user.lang))
-            markup.row(cancel)
-            tmp = json.loads(user.tmp)
-            if text.lower() == ga('no', user.lang).replace('\n','').lower():
-                tmp['totp'] = False
-            else:
-                tmp['totp'] = text
-            user.tmp = json.dumps(tmp)
-            bot.send_message(id, ga('data_key', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            user.action = 'data_key'
-            user.save()
-    elif user.action == 'data_key':
-        tmp = json.loads(user.tmp)
-        add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'], totp=tmp['totp'])
-        bot.send_message(id, ga('block_created', user.lang), disable_web_page_preview=True, parse_mode='html')
-        user.action = False
-        user.save()
-    elif user.action == 'block_see':
-        try:
-            models.Data.get(user=user,name=text)
-            user.action = 'block_open'
-            user.tmp = text
-            user.save()
-            markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-            cancel = types.KeyboardButton(ga('stop', user.lang))
-            markup.row(cancel)
-            bot.send_message(id, ga('block_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-        except Exception as e:
-            bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html')
-    elif user.action == 'block_open':
-        try:
-            block = models.Data.get(user=user,name=user.tmp)
-            data = get_data(block, text)
-            if not data[0]:
-                markup = types.ReplyKeyboardRemove()
-                bot.send_message(id, ga('pass_not', user.lang).format(**globals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-            else:
-                user.action = False
-                user.save()
-                bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
-        except Exception as e:
-            markup = types.ReplyKeyboardRemove()
-            bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
-    elif spl[0] == 'rename':
-        try:
-            models.Data.get(name=text)
-            bot.send_message(id, ga('block_rename_ex', user.lang))
-        except Exception as e:
-            if len(text) >= 50:
+        elif user.action == 'data_other':
+            if len(text) >= 800:
                 bot.send_message(id, ga('long_text', user.lang))
             else:
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                cancel = types.KeyboardButton(ga('stop', user.lang))
+                no = types.KeyboardButton(ga('no', user.lang))
+                markup.row(no, cancel)
+                tmp = json.loads(user.tmp)
+                if text.lower() == ga('no', user.lang).replace('\n','').lower():
+                    tmp['other'] = False
+                else:
+                    tmp['other'] = text
+                user.tmp = json.dumps(tmp)
+                bot.send_message(id, ga('data_totp', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                user.action = 'data_totp'
+                user.save()
+        elif user.action == 'data_totp':
+            if len(text) >= 128:
+                bot.send_message(id, ga('long_text', user.lang))
+            else:
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                cancel = types.KeyboardButton(ga('stop', user.lang))
+                markup.row(cancel)
+                tmp = json.loads(user.tmp)
+                if text.lower() == ga('no', user.lang).replace('\n','').lower():
+                    tmp['totp'] = False
+                else:
+                    tmp['totp'] = text
+                user.tmp = json.dumps(tmp)
+                bot.send_message(id, ga('data_key', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                user.action = 'data_key'
+                user.save()
+        elif user.action == 'data_key':
+            tmp = json.loads(user.tmp)
+            add_data(user, tmp['password'], tmp['name'], text, login=tmp['login'], other=tmp['other'], totp=tmp['totp'])
+            bot.send_message(id, ga('block_created', user.lang), disable_web_page_preview=True, parse_mode='html')
+            user.action = False
+            user.save()
+        elif user.action == 'block_see':
+            try:
+                models.Data.get(user=user,name=text)
+                user.action = 'block_open'
+                user.tmp = text
+                user.save()
+                markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+                cancel = types.KeyboardButton(ga('stop', user.lang))
+                markup.row(cancel)
+                bot.send_message(id, ga('block_pass', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+            except Exception as e:
+                bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html')
+        elif user.action == 'block_open':
+            try:
+                block = models.Data.get(user=user,name=user.tmp)
+                data = get_data(block, text)
+                if not data[0]:
+                    markup = types.ReplyKeyboardRemove()
+                    bot.send_message(id, ga('pass_not', user.lang).format(**globals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                else:
+                    user.action = False
+                    user.save()
+                    bot.send_message(id, return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
+            except Exception as e:
+                markup = types.ReplyKeyboardRemove()
+                bot.send_message(id, ga('block_not_found', user.lang), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+        elif spl[0] == 'rename':
+            try:
+                models.Data.get(name=text)
+                bot.send_message(id, ga('block_rename_ex', user.lang))
+            except Exception as e:
+                if len(text) >= 50:
+                    bot.send_message(id, ga('long_text', user.lang))
+                else:
+                    user.action = False
+                    user.save()
+                    block = models.Data.get(uuid=spl[1])
+                    block.name = text
+                    block.save()
+                    bot.send_message(id,  ga('suc', user.lang))
+        elif spl[0] == 'reset-pass':
+            block = models.Data.get(uuid=spl[1])
+            if get_data(block, text)[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.tmp = text
+                user.action = 'reset-pass-done_'+spl[1]
+                user.save()
+                bot.send_message(id, ga('new_pass', user.lang))
+        elif spl[0] == 'reset-pass-done':
+            block = models.Data.get(uuid=spl[1])
+            data = get_data(block, user.tmp)
+            block.salt = get_salt()
+            block.data = easy_encrypt(data[0], text, block.salt)
+            block.login = easy_encrypt(str(data[1]), text, block.salt)
+            block.save()
+            user.tmp = False
+            user.action = False
+            user.save()
+            bot.send_message(id, ga('pass_ch', user.lang))
+        elif spl[0] == 'reset-data-login':
+            block = models.Data.get(uuid=spl[1])
+            if get_data(block, text)[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.tmp = text
+                user.action = 'reset-data-login-done_'+spl[1]
+                user.save()
+                bot.send_message(id, ga('new_data', user.lang))
+        elif spl[0] == 'reset-data-login-done':
+            block = models.Data.get(uuid=spl[1])
+            block.login = easy_encrypt(text, user.tmp, block.salt)
+            block.save()
+            user.tmp = False
+            user.action = False
+            user.save()
+            bot.send_message(id, ga('suc', user.lang))
+        elif spl[0] == 'reset-data-pass':
+            block = models.Data.get(uuid=spl[1])
+            if get_data(block, text)[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.tmp = text
+                user.action = 'reset-data-pass-done_'+spl[1]
+                user.save()
+                bot.send_message(id, ga('new_data', user.lang))
+        elif spl[0] == 'reset-data-pass-done':
+            block = models.Data.get(uuid=spl[1])
+            block.data = easy_encrypt(text, user.tmp, block.salt)
+            block.save()
+            user.tmp = False
+            user.action = False
+            user.save()
+            bot.send_message(id, ga('suc', user.lang))
+        elif spl[0] == 'reset-data-note':
+            block = models.Data.get(uuid=spl[1])
+            if get_data(block, text)[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.tmp = text
+                user.action = 'reset-data-note-done_'+spl[1]
+                user.save()
+                bot.send_message(id, ga('new_data', user.lang))
+        elif spl[0] == 'reset-data-note-done':
+            if len(text) >= 800:
+                bot.send_message(id, ga('long_text', user.lang))
+            else:
+                block = models.Data.get(uuid=spl[1])
+                block.other = easy_encrypt(text, user.tmp, block.salt)
+                block.save()
+                user.tmp = False
                 user.action = False
                 user.save()
+                bot.send_message(id, ga('suc', user.lang))
+        elif spl[0] == 'reset-data-totp':
+            block = models.Data.get(uuid=spl[1])
+            if get_data(block, text)[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.tmp = text
+                user.action = 'reset-data-totp-done_'+spl[1]
+                user.save()
+                bot.send_message(id, ga('new_data', user.lang))
+        elif spl[0] == 'reset-data-totp-done':
+            if len(text) >= 128:
+                bot.send_message(id, ga('long_text', user.lang))
+            else:
                 block = models.Data.get(uuid=spl[1])
-                block.name = text
+                block.totp = easy_encrypt(text, user.tmp, block.salt)
                 block.save()
-                bot.send_message(id,  ga('suc', user.lang))
-    elif spl[0] == 'reset-pass':
-        block = models.Data.get(uuid=spl[1])
-        if get_data(block, text)[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.tmp = text
-            user.action = 'reset-pass-done_'+spl[1]
-            user.save()
-            bot.send_message(id, ga('new_pass', user.lang))
-    elif spl[0] == 'reset-pass-done':
-        block = models.Data.get(uuid=spl[1])
-        data = get_data(block, user.tmp)
-        block.salt = get_salt()
-        block.data = easy_encrypt(data[0], text, block.salt)
-        block.login = easy_encrypt(str(data[1]), text, block.salt)
-        block.save()
-        user.tmp = False
-        user.action = False
-        user.save()
-        bot.send_message(id, ga('pass_ch', user.lang))
-    elif spl[0] == 'reset-data-login':
-        block = models.Data.get(uuid=spl[1])
-        if get_data(block, text)[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.tmp = text
-            user.action = 'reset-data-login-done_'+spl[1]
-            user.save()
-            bot.send_message(id, ga('new_data', user.lang))
-    elif spl[0] == 'reset-data-login-done':
-        block = models.Data.get(uuid=spl[1])
-        block.login = easy_encrypt(text, user.tmp, block.salt)
-        block.save()
-        user.tmp = False
-        user.action = False
-        user.save()
-        bot.send_message(id, ga('suc', user.lang))
-    elif spl[0] == 'reset-data-pass':
-        block = models.Data.get(uuid=spl[1])
-        if get_data(block, text)[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.tmp = text
-            user.action = 'reset-data-pass-done_'+spl[1]
-            user.save()
-            bot.send_message(id, ga('new_data', user.lang))
-    elif spl[0] == 'reset-data-pass-done':
-        block = models.Data.get(uuid=spl[1])
-        block.data = easy_encrypt(text, user.tmp, block.salt)
-        block.save()
-        user.tmp = False
-        user.action = False
-        user.save()
-        bot.send_message(id, ga('suc', user.lang))
-    elif spl[0] == 'reset-data-note':
-        block = models.Data.get(uuid=spl[1])
-        if get_data(block, text)[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.tmp = text
-            user.action = 'reset-data-note-done_'+spl[1]
-            user.save()
-            bot.send_message(id, ga('new_data', user.lang))
-    elif spl[0] == 'reset-data-note-done':
-        if len(text) >= 800:
-            bot.send_message(id, ga('long_text', user.lang))
-        else:
+                user.tmp = False
+                user.action = False
+                user.save()
+                bot.send_message(id, ga('suc', user.lang))
+        elif spl[0] == 'update-block-msg':
             block = models.Data.get(uuid=spl[1])
-            block.other = easy_encrypt(text, user.tmp, block.salt)
-            block.save()
-            user.tmp = False
-            user.action = False
-            user.save()
-            bot.send_message(id, ga('suc', user.lang))
-    elif spl[0] == 'reset-data-totp':
-        block = models.Data.get(uuid=spl[1])
-        if get_data(block, text)[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.tmp = text
-            user.action = 'reset-data-totp-done_'+spl[1]
-            user.save()
-            bot.send_message(id, ga('new_data', user.lang))
-    elif spl[0] == 'reset-data-totp-done':
-        if len(text) >= 128:
-            bot.send_message(id, ga('long_text', user.lang))
-        else:
-            block = models.Data.get(uuid=spl[1])
-            block.totp = easy_encrypt(text, user.tmp, block.salt)
-            block.save()
-            user.tmp = False
-            user.action = False
-            user.save()
-            bot.send_message(id, ga('suc', user.lang))
-    elif spl[0] == 'update-block-msg':
-        block = models.Data.get(uuid=spl[1])
-        data = get_data(block, text)
-        if data[0] == '':
-            bot.send_message(id, ga('pass_not_ex', user.lang))
-        else:
-            user.action = False
-            user.save()
-            try:
-                bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
-            except:
-                pass
+            data = get_data(block, text)
+            if data[0] == '':
+                bot.send_message(id, ga('pass_not_ex', user.lang))
+            else:
+                user.action = False
+                user.save()
+                try:
+                    bot.edit_message_text(chat_id=id, message_id=int(spl[2]), text = return_block_text(block, data, user), disable_web_page_preview=True, parse_mode='html', reply_markup=return_settings(block, user))
+                except:
+                    pass
+    except Exception as e:
+        bot.send_message(id, ga('error', user.lang)+str(e))
+        ex = sys.exc_info()
+        ex = '\n'.join(traceback.format_exception(*ex))
+        bot.send_message(int(cfg['id']), f'Error in text handler: {str(e)}\n\nuser: {str(user)}\n\ntraceback: {ex}')
+        del ex
 
 bot.polling(none_stop=True, timeout=123)
