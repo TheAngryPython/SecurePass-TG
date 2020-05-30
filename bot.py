@@ -277,6 +277,30 @@ def callback_inline(call):
         user.save()
         bot.send_message(id, ga('suc', user.lang))
 
+@bot.message_handler(commands=['amsg'])
+def admin_recover_bd(message):
+    m = message
+    text = m.text
+    id = m.chat.id
+    uid = m.from_user.id
+    if uid == int(cfg['id']):
+        msg = text.replace('/amsg ','').replace('/amsg','')
+        key = cfg['yandex']
+        langs = ['ru', 'en', 'it', 'fr', 'de', 'uk', 'pl']
+        format = 'https://translate.yandex.net/api/v1.5/tr.json/translate?key={key}&text={text}&lang={lang}&format=plain'
+        orig = 'ru'
+        ans = {}
+        for lang in langs:
+            if lang == orig:
+                ans[orig] = msg
+                continue
+            answer = json.loads(requests.get(format.format(lang=lang,text=msg,key=key)).text)['text'][0]
+            ans[lang] = answer
+        for user in models.User.select():
+            bot.send_message(user.user_id, ans[user.lang])
+    else:
+        bot.send_message(id, ga('access_denied',user.lang))
+
 @bot.message_handler(commands=['admin_recover_bd'])
 def admin_recover_bd(message):
     m = message
