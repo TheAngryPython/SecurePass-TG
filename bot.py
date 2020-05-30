@@ -79,7 +79,11 @@ def decrypt(enc, password):
     enc = base64.b64decode(enc)
     iv = enc[:16]
     cipher = AES.new(private_key, AES.MODE_CBC, iv)
-    return bytes.decode(unpad1(cipher.decrypt(enc[16:]), BLOCK_SIZE))
+    try:
+        r = bytes.decode(unpad1(cipher.decrypt(enc[16:]), BLOCK_SIZE))
+    except:
+        r = bytes.decode(unpad(cipher.decrypt(enc[16:])))
+    return r
 
 # добавить блок
 def add_data(user, data, name, password, login=False, other=False, totp=False):
