@@ -537,7 +537,7 @@ def com(message):
                 data = get_data(block, text)
                 if not data[0]:
                     markup = types.ReplyKeyboardRemove()
-                    bot.send_message(id, ga('pass_not', user.lang).format(**globals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
+                    bot.send_message(id, ga('pass_not', user.lang).format(**locals()), disable_web_page_preview=True, parse_mode='html', reply_markup=markup)
                 else:
                     user.action = False
                     user.save()
