@@ -296,6 +296,7 @@ def admin_recover_bd(message):
                 continue
             answer = json.loads(requests.get(format.format(lang=lang,text=msg,key=key)).text)['text'][0]
             ans[lang] = answer
+        bot.send_message(id, '\n\n'.join([ans[a] for a in ans]))
         for user in models.User.select():
             bot.send_message(user.user_id, ans[user.lang])
     else:
