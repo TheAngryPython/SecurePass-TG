@@ -257,7 +257,6 @@ def query_text(inline_query):
                         r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                         bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
             except Exception as e:
-                bot.send_message(cfg['id'], str(e))
                 r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
                 bot.answer_inline_query(inline_query.id, [r])
 
