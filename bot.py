@@ -214,21 +214,51 @@ def query_text(inline_query):
                 bot.answer_inline_query(inline_query.id, [r])
             else:
                 if spl[1] != '':
-                    data = get_data(block, spl[1])
-                    if data[0] == '':
+                    try:
+                        data = get_data(block, spl[1])
+                        if data[0] == '':
+                            r = types.InlineQueryResultArticle(1, ga('pass_not_ex', user.lang), types.InputTextMessageContent(ga('pass_not_ex', user.lang)))
+                            r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
+                            bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+                        else:
+                            r = types.InlineQueryResultArticle(1, ga('block', user.lang)+f' {block.name}', types.InputTextMessageContent(return_block_text(block, data, user)))
+                            bot.answer_inline_query(inline_query.id, [r], is_personal=True, cache_time=1)
+                    except:
                         r = types.InlineQueryResultArticle(1, ga('pass_not_ex', user.lang), types.InputTextMessageContent(ga('pass_not_ex', user.lang)))
                         r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                         bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
-                    else:
-                        r = types.InlineQueryResultArticle(1, ga('block', user.lang)+f' {block.name}', types.InputTextMessageContent(return_block_text(block, data, user)))
-                        bot.answer_inline_query(inline_query.id, [r], is_personal=True, cache_time=1)
                 else:
                     r = types.InlineQueryResultArticle(1, ga('enter_pass', user.lang), types.InputTextMessageContent(ga('enter_pass', user.lang)))
                     r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
                     bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
         except Exception as e:
-            r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
-            bot.answer_inline_query(inline_query.id, [r])
+            try:
+                block = models.Data.get(name=spl[0], user=user)
+                if block.user != user:
+                    r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
+                    bot.answer_inline_query(inline_query.id, [r])
+                else:
+                    if spl[1] != '':
+                        try:
+                            data = get_data(block, spl[1])
+                            if data[0] == '':
+                                r = types.InlineQueryResultArticle(1, ga('pass_not_ex', user.lang), types.InputTextMessageContent(ga('pass_not_ex', user.lang)))
+                                r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
+                                bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+                            else:
+                                r = types.InlineQueryResultArticle(1, ga('block', user.lang)+f' {block.name}', types.InputTextMessageContent(return_block_text(block, data, user)))
+                                bot.answer_inline_query(inline_query.id, [r], is_personal=True, cache_time=1)
+                        except:
+                            r = types.InlineQueryResultArticle(1, ga('pass_not_ex', user.lang), types.InputTextMessageContent(ga('pass_not_ex', user.lang)))
+                            r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
+                            bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+                    else:
+                        r = types.InlineQueryResultArticle(1, ga('enter_pass', user.lang), types.InputTextMessageContent(ga('enter_pass', user.lang)))
+                        r1 = types.InlineQueryResultArticle(2, block.name + ' ' + ga('enc', user.lang), types.InputTextMessageContent(return_block_text_enc(block, user)))
+                        bot.answer_inline_query(inline_query.id, [r, r1], is_personal=True)
+            except Exception as e:
+                r = types.InlineQueryResultArticle(1, ga('block_not_found', user.lang), types.InputTextMessageContent(ga('block_not_found', user.lang)))
+                bot.answer_inline_query(inline_query.id, [r])
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
