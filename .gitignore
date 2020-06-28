@@ -8,7 +8,7 @@ __pycache__/
 *.sql*
 cfg*
 *db*
-
+log.txt
 # Distribution / packaging
 .Python
 build/
